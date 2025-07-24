@@ -108,38 +108,34 @@
         
         // QR button - Super simple method
         qrBtn.addEventListener('click', () => {
-            if (hasRecording) {
-                status.textContent = '⏳ Generating QR code...';
-                log('Creating QR code...');
-                
-                // Create unique URL for this recording
-                const recordingId = Date.now();
-                const qrUrl = `https://qr-stream.onrender.com?video=${recordingId}`;
-                
-                // Use QR Server API (most reliable)
-                const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`;
-                
-                const img = document.createElement('img');
-                img.onload = () => {
-                    qrDiv.innerHTML = '';
-                    qrDiv.appendChild(img);
-                    status.textContent = '✅ QR code ready! Tap Save to download';
-                    shareBtn.disabled = false;
-                    currentQRUrl = qrApiUrl;
-                    log('QR code generated successfully');
-                };
-                img.onerror = () => {
-                    status.textContent = '❌ QR generation failed';
-                    log('QR generation failed');
-                };
-                img.src = qrApiUrl;
-                img.style.maxWidth = '200px';
-                img.style.border = '2px solid #333';
-                img.style.borderRadius = '10px';
-                
-                log('QR URL: ' + qrUrl);
-            }
-        });
+    if (hasRecording) {
+        status.textContent = '⏳ Generating QR code...';
+        log('Creating QR code with QR-Server...');
+        
+        const qrUrl = "https://qr-stream.onrender.com";
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&format=png&data=${encodeURIComponent(qrUrl)}`;
+        
+        const img = document.createElement('img');
+        img.onload = () => {
+            qrDiv.innerHTML = '';
+            qrDiv.appendChild(img);
+            status.textContent = '✅ QR code ready! Scan to test';
+            shareBtn.disabled = false;
+            currentQRUrl = qrApiUrl;
+            log('QR-Server.com generated QR successfully');
+        };
+        img.onerror = () => {
+            status.textContent = '❌ QR generation failed';
+            log('QR-Server.com failed');
+        };
+        img.src = qrApiUrl;
+        img.style.maxWidth = '250px';
+        img.style.border = '2px solid #333';
+        img.style.borderRadius = '10px';
+        
+        log('Using QR-Server.com for: ' + qrUrl);
+    }
+});
         
         // Share button - Simple and reliable
         shareBtn.addEventListener('click', () => {
