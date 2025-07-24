@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QRStream - Video to QR Code</title>
+    <title>QR-Stream - Video to QR Code</title>
     <style>
         * {
             margin: 0;
@@ -71,6 +71,7 @@
             padding: 20px;
             text-align: center;
             color: #333;
+            min-height: 280px;
         }
         
         #qrcode {
@@ -118,29 +119,47 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .status {
             text-align: center;
             margin: 15px 0;
             font-weight: bold;
+        }
+        
+        .recording {
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">QRStream</div>
+            <div class="logo">QR-Stream</div>
             <div class="tagline">Turn any video into a QR code instantly</div>
         </div>
         
         <div class="main-content">
             <div class="video-section">
-                <video id="videoPreview" autoplay muted></video>
+                <video id="videoPreview" autoplay muted playsinline></video>
                 <div class="status" id="status">Ready to record</div>
             </div>
             
             <div class="qr-section">
                 <h3>Your QR Code</h3>
-                <div id="qrcode"></div>
+                <div id="qrcode">
+                    <p style="color: #666; padding: 40px;">QR code will appear here after recording</p>
+                </div>
                 <p>Scan to access your content</p>
             </div>
             
@@ -157,6 +176,7 @@
         let mediaRecorder;
         let recordedChunks = [];
         let stream;
+        let isRecording = false;
         
         const videoPreview = document.getElementById('videoPreview');
         const startBtn = document.getElementById('startBtn');
@@ -169,68 +189,115 @@
         async function initCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: true, 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }, 
                     audio: true 
                 });
                 videoPreview.srcObject = stream;
-                status.textContent = "Camera ready!";
+                status.textContent = "Camera ready! Tap to start recording";
+                console.log('Camera initialized successfully');
             } catch (err) {
-                status.textContent = "Camera access denied";
+                status.textContent = "Camera access denied - please allow camera access";
                 console.error('Error accessing camera:', err);
             }
         }
         
-        // Start recording
+        // Start/Stop recording
         startBtn.addEventListener('click', async () => {
             if (!stream) {
                 await initCamera();
+                return;
             }
             
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
+            if (isRecording) {
                 // Stop recording
+                console.log('Stopping recording...');
                 mediaRecorder.stop();
+                isRecording = false;
                 startBtn.textContent = 'Start Recording';
-                status.textContent = 'Recording stopped';
+                startBtn.classList.remove('recording');
+                status.textContent = 'Processing recording...';
             } else {
                 // Start recording
+                console.log('Starting recording...');
                 recordedChunks = [];
-                mediaRecorder = new MediaRecorder(stream);
+                
+                try {
+                    mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: 'video/webm;codecs=vp8,opus'
+                    });
+                } catch (e) {
+                    // Fallback for Safari
+                    mediaRecorder = new MediaRecorder(stream);
+                }
                 
                 mediaRecorder.ondataavailable = (event) => {
+                    console.log('Data available:', event.data.size, 'bytes');
                     if (event.data.size > 0) {
                         recordedChunks.push(event.data);
                     }
                 };
                 
                 mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(blob);
-                    generateBtn.disabled = false;
+                    console.log('Recording stopped, processing...');
+                    const blob = new Blob(recordedChunks, { 
+                        type: mediaRecorder.mimeType || 'video/webm' 
+                    });
                     
-                    // Store the video URL for QR generation
-                    window.recordedVideoURL = url;
+                    console.log('Blob created:', blob.size, 'bytes');
+                    
+                    if (blob.size > 0) {
+                        // Store the video data
+                        window.recordedVideoBlob = blob;
+                        generateBtn.disabled = false;
+                        status.textContent = 'Recording ready! Generate QR code';
+                    } else {
+                        status.textContent = 'Recording failed - try again';
+                    }
                 };
                 
-                mediaRecorder.start();
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    status.textContent = 'Recording error - try again';
+                };
+                
+                mediaRecorder.start(1000); // Collect data every second
+                isRecording = true;
                 startBtn.textContent = 'Stop Recording';
-                status.textContent = 'Recording...';
+                startBtn.classList.add('recording');
+                status.textContent = 'Recording... (tap stop when done)';
             }
         });
         
         // Generate QR Code
         generateBtn.addEventListener('click', () => {
-            if (window.recordedVideoURL) {
-                // Create a shareable link (in real app, this would be uploaded to cloud)
-                const shareableData = {
-                    type: 'video',
-                    timestamp: new Date().toISOString(),
-                    message: 'QRStream Video Recording'
+            console.log('Generating QR code...');
+            
+            if (window.recordedVideoBlob) {
+                // Create shareable data
+                const timestamp = new Date().toISOString();
+                const videoInfo = {
+                    app: 'QR-Stream',
+                    type: 'video_recording',
+                    timestamp: timestamp,
+                    size: window.recordedVideoBlob.size,
+                    duration: 'recorded_video',
+                    message: `Video recorded on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+                    share_url: window.location.origin
                 };
                 
-                const qrData = JSON.stringify(shareableData);
+                const qrData = JSON.stringify(videoInfo);
+                console.log('QR Data:', qrData);
+                
+                // Clear previous QR code
+                qrCodeDiv.innerHTML = '';
                 
                 QRCode.toCanvas(qrCodeDiv, qrData, {
                     width: 200,
+                    height: 200,
                     margin: 2,
                     color: {
                         dark: '#000000',
@@ -238,13 +305,17 @@
                     }
                 }, (error) => {
                     if (error) {
-                        console.error(error);
-                        status.textContent = 'QR generation failed';
+                        console.error('QR generation error:', error);
+                        status.textContent = 'QR generation failed - try again';
+                        qrCodeDiv.innerHTML = '<p style="color: red;">QR generation failed</p>';
                     } else {
-                        status.textContent = 'QR Code generated!';
+                        console.log('QR code generated successfully');
+                        status.textContent = 'QR Code generated! Ready to share';
                         shareBtn.disabled = false;
                     }
                 });
+            } else {
+                status.textContent = 'No recording found - record first';
             }
         });
         
@@ -254,31 +325,57 @@
             if (canvas) {
                 try {
                     canvas.toBlob(async (blob) => {
-                        const file = new File([blob], 'qrstream-code.png', { type: 'image/png' });
+                        const file = new File([blob], 'qr-stream-code.png', { type: 'image/png' });
                         
-                        if (navigator.share) {
-                            await navigator.share({
-                                title: 'QRStream QR Code',
-                                text: 'Scan this QR code to access my video!',
-                                files: [file]
-                            });
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({
+                                    title: 'QR-Stream QR Code',
+                                    text: 'Scan this QR code to access my video recording!',
+                                    files: [file]
+                                });
+                                status.textContent = 'QR code shared successfully!';
+                            } catch (shareError) {
+                                console.log('Share cancelled or failed:', shareError);
+                                downloadQR(blob);
+                            }
                         } else {
                             // Fallback: download the QR code
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'qrstream-code.png';
-                            a.click();
+                            downloadQR(blob);
                         }
-                    });
+                    }, 'image/png');
                 } catch (err) {
-                    console.error('Share failed:', err);
+                    console.error('Share preparation failed:', err);
+                    status.textContent = 'Share failed - try again';
                 }
             }
         });
         
+        function downloadQR(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'qr-stream-code.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            status.textContent = 'QR code downloaded!';
+        }
+        
         // Initialize on load
-        window.addEventListener('load', initCamera);
+        window.addEventListener('load', () => {
+            console.log('App loaded, initializing camera...');
+            initCamera();
+        });
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isRecording) {
+                // Stop recording if page becomes hidden
+                startBtn.click();
+            }
+        });
     </script>
 </body>
 </html>
