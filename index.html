@@ -106,36 +106,39 @@
             }
         });
         
-        // QR button - Super simple method
-        qrBtn.addEventListener('click', () => {
+        // Generate clickable URL instead of QR code
+    qrBtn.addEventListener('click', () => {
     if (hasRecording) {
-        status.textContent = '⏳ Generating QR code...';
-        log('Creating QR code with QR-Server...');
+        status.textContent = '⏳ Generating shareable link...';
+        log('Creating shareable URL...');
         
-        const qrUrl = "https://qr-stream.onrender.com";
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&format=png&data=${encodeURIComponent(qrUrl)}`;
+        const shareUrl = "https://qr-stream.onrender.com";
+        const recordingTime = new Date().toLocaleString();
         
-        const img = document.createElement('img');
-        img.onload = () => {
-            qrDiv.innerHTML = '';
-            qrDiv.appendChild(img);
-            status.textContent = '✅ QR code ready! Scan to test';
-            shareBtn.disabled = false;
-            currentQRUrl = qrApiUrl;
-            log('QR-Server.com generated QR successfully');
-        };
-        img.onerror = () => {
-            status.textContent = '❌ QR generation failed';
-            log('QR-Server.com failed');
-        };
-        img.src = qrApiUrl;
-        img.style.maxWidth = '250px';
-        img.style.border = '2px solid #333';
-        img.style.borderRadius = '10px';
+        qrDiv.innerHTML = `
+            <div style="padding: 20px; background: #f0f0f0; border-radius: 10px; color: black;">
+                <h4>📱 Share Your Recording</h4>
+                <p style="margin: 15px 0; font-size: 14px; color: #666;">
+                    Recorded: ${recordingTime}
+                </p>
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #2196F3; margin: 15px 0;">
+                    <a href="${shareUrl}" target="_blank" style="color: #2196F3; font-weight: bold; text-decoration: none; font-size: 16px;">
+                        🎥 qr-stream.onrender.com
+                    </a>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                    👆 Tap the link above to open QR-Stream
+                </p>
+            </div>
+        `;
         
-        log('Using QR-Server.com for: ' + qrUrl);
+        status.textContent = '✅ Shareable link ready! Tap to open';
+        shareBtn.disabled = false;
+        currentQRUrl = shareUrl;
+        log('Clickable URL generated: ' + shareUrl);
     }
 });
+      
         
         // Share button - Simple and reliable
         shareBtn.addEventListener('click', () => {
