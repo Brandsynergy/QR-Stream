@@ -236,42 +236,31 @@
         
         // Share button
         shareBtn.addEventListener('click', async () => {
-            const canvas = qrDiv.querySelector('canvas');
-            const img = qrDiv.querySelector('img');
-            
-            if (canvas) {
-                try {
-                    canvas.toBlob(async (blob) => {
-                        const file = new File([blob], 'qr-stream-code.png', { type: 'image/png' });
-                        
-                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                title: 'QR-Stream QR Code',
-                                text: 'Scan this QR code!',
-                                files: [file]
-                            });
-                            log('Shared via Web Share API');
-                        } else {
-                            // Download fallback
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'qr-stream-code.png';
-                            a.click();
-                            log('Downloaded QR code');
-                        }
-                    });
-                } catch (error) {
-                    log('Share failed: ' + error.message);
-                }
-            } else if (img) {
-                // For API-generated images, open in new tab
-                window.open(img.src, '_blank');
-                log('Opened QR image in new tab');
-            } else {
-                log('No QR element found to share');
-            }
-        });
+    const canvas = qrDiv.querySelector('canvas');
+    const img = qrDiv.querySelector('img');
+    
+    if (canvas) {
+        // Convert canvas to image and download
+        const link = document.createElement('a');
+        link.download = 'qr-stream-code.png';
+        link.href = canvas.toDataURL();
+        link.click();
+        status.textContent = 'QR code downloaded to your device!';
+        log('QR code downloaded successfully');
+    } else if (img) {
+        // For API images, try to download
+        const link = document.createElement('a');
+        link.download = 'qr-stream-code.png';
+        link.href = img.src;
+        link.target = '_blank';
+        link.click();
+        status.textContent = 'QR code opened in new tab!';
+        log('QR image opened in new tab');
+    } else {
+        status.textContent = 'No QR code to share - generate one first!';
+        log('No QR code found');
+    }
+});
         
         log('App initialized');
     </script>
