@@ -90,35 +90,71 @@
                 status.textContent = '✅ Recording complete! Generate shareable link';
             }
         });
-        // Generate shareable link
+       // Generate shareable link with REAL content
 linkBtn.addEventListener('click', () => {
     if (hasRecording) {
-        status.textContent = '⏳ Generating shareable link...';
+        status.textContent = '⏳ Generating shareable content...';
         
         const recordingTime = new Date().toLocaleString();
+        const recordingId = Date.now();
         
-        // Create a simple shareable message with your app info
-        const shareableUrl = `https://qr-stream.onrender.com - Check out my recording made with QR-Stream app on ${recordingTime}`;
+        // Create actual shareable HTML content
+        const shareableContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR-Stream Recording</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #2196F3; margin-bottom: 20px; }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .download-btn { background: #4CAF50; color: white; padding: 15px 30px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; text-decoration: none; display: inline-block; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 QR-Stream Recording</h1>
+        <div class="info">
+            <p><strong>📅 Recorded:</strong> ${recordingTime}</p>
+            <p><strong>📱 App:</strong> QR-Stream</p>
+            <p><strong>🆔 ID:</strong> ${recordingId}</p>
+        </div>
+        <p>This recording was created using the QR-Stream app!</p>
+        <a href="https://qr-stream.onrender.com" class="download-btn">🚀 Try QR-Stream App</a>
+        <p style="font-size: 12px; color: #666; margin-top: 30px;">
+            QR-Stream - Quick Recording & Instant Sharing
+        </p>
+    </div>
+</body>
+</html>`;
+        
+        // Create a data URL with the actual content
+        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(shareableContent);
         
         linkArea.innerHTML = `
-            <h4>🔗 Your Shareable Message</h4>
+            <h4>🔗 Your Shareable Content</h4>
             <p style="margin: 15px 0; font-size: 14px; color: #666;">
                 Recorded: ${recordingTime}
             </p>
             <div class="share-link">
-                <textarea readonly onclick="copyLink(this)" style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; resize: none;">${shareableUrl}</textarea>
+                <button onclick="openContent('${dataUrl}')" style="width: 100%; padding: 15px; background: #2196F3; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; margin: 10px 0;">
+                    👀 Preview Your Content
+                </button>
+                <textarea readonly onclick="copyContent(this)" style="width: 100%; height: 60px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; resize: none;">${dataUrl}</textarea>
             </div>
             <div style="margin: 15px 0;">
-                <button onclick="shareWhatsApp('${shareableUrl}')" style="padding: 10px 20px; background: #25D366; color: white; border: none; border-radius: 5px; margin: 5px;">
+                <button onclick="shareWhatsApp('Check out my recording: ${dataUrl}')" style="padding: 10px 20px; background: #25D366; color: white; border: none; border-radius: 5px; margin: 5px;">
                     📱 Share on WhatsApp
                 </button>
             </div>
             <p style="font-size: 12px; color: #666; margin-top: 15px;">
-                👆 Tap to copy message and share anywhere
+                👆 Preview first, then copy and share the link
             </p>
         `;
         
-        status.textContent = '✅ Shareable message ready! Copy and share anywhere';
+        status.textContent = '✅ Shareable content ready! Preview and share';
     }
 });
         
