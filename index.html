@@ -169,36 +169,36 @@ qrBtn.addEventListener('click', () => {
         // Create a unique shareable URL
         const shareableUrl = `https://qr-stream.onrender.com/watch?v=${Date.now()}`;
         
-        qrDiv.innerHTML = `
-            <div style="padding: 20px; background: #f0f0f0; border-radius: 10px; color: black;">
-                <h4>🔗 Shareable Link</h4>
-                <p style="margin: 15px 0; font-size: 14px; color: #666;">
-                    Recorded: ${recordingTime}<br>
-                    📹 Video + 🎵 Audio included
-                </p>
-                
-                <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #2196F3; margin: 15px 0;">
-                    <input type="text" value="${shareableUrl}" readonly 
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; color: #333;"
-                           onclick="this.select(); document.execCommand('copy'); alert('Link copied!');">
-                </div>
-                
-                <div style="display: flex; gap: 10px; margin: 15px 0;">
-                    <button onclick="navigator.share({title: 'My Recording', url: '${shareableUrl}'})" 
-                            style="flex: 1; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold;">
-                        📱 Share via WhatsApp
-                    </button>
-                    <button onclick="window.open('mailto:?subject=My Recording&body=Watch my recording: ${shareableUrl}', '_blank')" 
-                            style="flex: 1; padding: 12px; background: #EA4335; color: white; border: none; border-radius: 8px; font-weight: bold;">
-                        📧 Share via Email
-                    </button>
-                </div>
-                
-                <p style="font-size: 12px; color: #666; margin-top: 15px; text-align: center;">
-                    👆 Tap link to copy, or use share buttons
-                </p>
-            </div>
-        `;
+     qrDiv.innerHTML = `
+    <div style="padding: 20px; background: #f0f0f0; border-radius: 10px; color: black;">
+        <h4>🔗 Shareable Link</h4>
+        <p style="margin: 15px 0; font-size: 14px; color: #666;">
+            Recorded: ${recordingTime}<br>
+            📹 Video + 🎵 Audio included
+        </p>
+        
+        <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #2196F3; margin: 15px 0;">
+            <input type="text" value="${shareableUrl}" readonly 
+                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; color: #333;"
+                   onclick="this.select(); document.execCommand('copy'); alert('Link copied!');">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin: 15px 0;">
+            <button onclick="copyToClipboard('${shareableUrl}')" 
+                    style="flex: 1; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold;">
+                📋 Copy Link
+            </button>
+            <button onclick="shareViaWhatsApp('${shareableUrl}')" 
+                    style="flex: 1; padding: 12px; background: #2196F3; color: white; border: none; border-radius: 8px; font-weight: bold;">
+                📱 WhatsApp
+            </button>
+        </div>
+        
+        <p style="font-size: 12px; color: #666; margin-top: 15px; text-align: center;">
+            👆 Copy link and paste anywhere to share
+        </p>
+    </div>
+`;
         
         status.textContent = '✅ Shareable link ready! Copy and share anywhere';
         shareBtn.disabled = false;
@@ -239,6 +239,16 @@ qrBtn.addEventListener('click', () => {
         });
         
         log('QR-Stream app loaded successfully');
+        // Helper functions for sharing
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Link copied! Paste it anywhere to share');
+    });
+}
+
+function shareViaWhatsApp(url) {
+    window.open(`https://wa.me/?text=Check out my recording: ${url}`, '_blank');
+}
     </script>
 </body>
 </html>
