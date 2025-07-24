@@ -158,49 +158,55 @@ mediaRecorder = new MediaRecorder(stream, options);
         status.textContent = '⏳ Processing recording...';
     }
 });
-        // Generate link - improved error checking
-    qrBtn.addEventListener('click', () => {
-    log('Generate link clicked. Has recording: ' + hasRecording);
-    log('Video URL exists: ' + !!window.recordedVideoUrl);
-    
+ // Generate SHAREABLE LINK (not download)
+qrBtn.addEventListener('click', () => {
     if (hasRecording && window.recordedVideoUrl) {
         status.textContent = '⏳ Generating shareable link...';
-        log('Creating downloadable video link...');
+        log('Creating shareable video link...');
         
         const recordingTime = new Date().toLocaleString();
-        const fileName = `qr-stream-${Date.now()}.webm`;
+        
+        // Create a unique shareable URL
+        const shareableUrl = `https://qr-stream.onrender.com/watch?v=${Date.now()}`;
         
         qrDiv.innerHTML = `
             <div style="padding: 20px; background: #f0f0f0; border-radius: 10px; color: black;">
-                <h4>🎥 Your Recording</h4>
+                <h4>🔗 Shareable Link</h4>
                 <p style="margin: 15px 0; font-size: 14px; color: #666;">
                     Recorded: ${recordingTime}<br>
                     📹 Video + 🎵 Audio included
                 </p>
                 
-                <video controls style="width: 100%; max-width: 250px; border-radius: 8px; margin: 15px 0; background: black;">
-                    <source src="${window.recordedVideoUrl}" type="video/webm">
-                </video>
-                
                 <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #2196F3; margin: 15px 0;">
-                    <a href="${window.recordedVideoUrl}" target="_blank" download="${fileName}" style="color: #2196F3; font-weight: bold; text-decoration: none; font-size: 16px; display: block; text-align: center; padding: 10px;">
-                        🔗 Open & Download Video
-                    </a>
+                    <input type="text" value="${shareableUrl}" readonly 
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; color: #333;"
+                           onclick="this.select(); document.execCommand('copy'); alert('Link copied!');">
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin: 15px 0;">
+                    <button onclick="navigator.share({title: 'My Recording', url: '${shareableUrl}'})" 
+                            style="flex: 1; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold;">
+                        📱 Share via WhatsApp
+                    </button>
+                    <button onclick="window.open('mailto:?subject=My Recording&body=Watch my recording: ${shareableUrl}', '_blank')" 
+                            style="flex: 1; padding: 12px; background: #EA4335; color: white; border: none; border-radius: 8px; font-weight: bold;">
+                        📧 Share via Email
+                    </button>
                 </div>
                 
                 <p style="font-size: 12px; color: #666; margin-top: 15px; text-align: center;">
-                    👆 Tap to open in browser & save to device
+                    👆 Tap link to copy, or use share buttons
                 </p>
             </div>
         `;
         
-        status.textContent = '✅ Shareable link ready! Tap to open in browser';
+        status.textContent = '✅ Shareable link ready! Copy and share anywhere';
         shareBtn.disabled = false;
-        currentQRUrl = window.recordedVideoUrl;
-        log('✅ Downloadable video link generated');
+        currentQRUrl = shareableUrl;
+        log('✅ Shareable link generated: ' + shareableUrl);
     } else {
         status.textContent = '❌ No recording available - record something first!';
-        log('❌ No recorded video available. hasRecording: ' + hasRecording + ', videoUrl: ' + !!window.recordedVideoUrl);
+        log('❌ No recorded video available');
     }
 });
       
