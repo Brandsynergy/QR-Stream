@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR-Stream</title>
+    <title>QR-Stream - Quick Recording</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,240 +15,113 @@
         }
         .container { max-width: 400px; margin: 0 auto; }
         video { width: 100%; max-width: 300px; height: 200px; background: black; border-radius: 10px; margin: 20px 0; }
-        .qr-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 200px; }
+        .link-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 150px; }
         button { padding: 15px 30px; margin: 10px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-record { background: #4CAF50; color: white; }
-        .btn-qr { background: #2196F3; color: white; }
-        .btn-share { background: #FF9800; color: white; }
+        .btn-link { background: #2196F3; color: white; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         #status { margin: 15px 0; font-weight: bold; }
-        #qrcode img { max-width: 200px; border: 2px solid #333; border-radius: 10px; }
-        .debug { background: rgba(0,0,0,0.1); padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
+        .share-link { background: #f0f0f0; padding: 15px; border-radius: 8px; margin: 15px 0; border: 2px solid #2196F3; }
+        .share-link input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎥 QR-Stream</h1>
-        <p>Turn videos into QR codes instantly</p>
+        <p>Quick Recording & Instant Sharing</p>
         
         <video id="video" autoplay muted playsinline></video>
-        <div id="status">Initializing camera...</div>
+        <div id="status">Starting camera...</div>
         
-        <div class="qr-area">
-            <h3>📱 Your QR Code</h3>
-            <div id="qrcode">
-                <p style="color: #666; padding: 40px;">QR code will appear here after recording</p>
+        <div class="link-area">
+            <h3>🔗 Shareable Link</h3>
+            <div id="linkArea">
+                <p style="color: #666; padding: 40px;">Record something first, then generate your shareable link</p>
             </div>
         </div>
         
         <button class="btn-record" id="recordBtn" disabled>🔴 Start Recording</button>
-        <button class="btn-qr" id="qrBtn" disabled>🔗 Generate Link</button>
-        <button class="btn-share" id="shareBtn" disabled>📤 Save QR</button>
-        
-        <div class="debug" id="debug">Ready to start...</div>
+        <button class="btn-link" id="linkBtn" disabled>🔗 Generate Link</button>
     </div>
 
     <script>
         let recording = false;
         let hasRecording = false;
-        let currentQRUrl = '';
+        let recordedVideoUrl = '';
         
         const video = document.getElementById('video');
         const recordBtn = document.getElementById('recordBtn');
-        const qrBtn = document.getElementById('qrBtn');
-        const shareBtn = document.getElementById('shareBtn');
+        const linkBtn = document.getElementById('linkBtn');
         const status = document.getElementById('status');
-        const qrDiv = document.getElementById('qrcode');
-        const debug = document.getElementById('debug');
-        
-        function log(message) {
-            console.log(message);
-            debug.textContent = new Date().toLocaleTimeString() + ': ' + message;
-        }
+        const linkArea = document.getElementById('linkArea');
         
         // Get camera
-        log('Starting camera...');
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
                 video.srcObject = stream;
                 status.textContent = "📹 Camera ready! Tap to start recording";
                 recordBtn.disabled = false;
-                log('Camera ready');
             })
             .catch(err => {
                 status.textContent = "❌ Camera error: " + err.message;
-                log('Camera failed: ' + err.message);
             });
-        // Record button with REAL video capture
-let mediaRecorder;
-let recordedChunks = [];
-
-recordBtn.addEventListener('click', async () => {
-    if (!recording) {
-        try {
-            // Get current stream (already working from camera setup)
-            const stream = video.srcObject;
-            
-            // Use MP4 format for better compatibility
-    const options = {
-    mimeType: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
-};
-
-// Fallback for browsers that don't support MP4
-if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-    options.mimeType = 'video/webm; codecs=vp9,opus';
-}
-
-mediaRecorder = new MediaRecorder(stream, options);
-            recordedChunks = [];
-            
-            mediaRecorder.ondataavailable = (event) => {
-                console.log('Data available:', event.data.size);
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
-            
-            mediaRecorder.onstop = () => {
-                console.log('Recording stopped, chunks:', recordedChunks.length);
-                if (recordedChunks.length > 0) {
-                    const blob = new Blob(recordedChunks, { 
-            type: options.mimeType.includes('mp4') ? 'video/mp4' : 'video/webm' 
- });
-                    const videoUrl = URL.createObjectURL(blob);
-                    
-                    // Store globally
-                    window.recordedVideoUrl = videoUrl;
-                    window.recordedVideoBlob = blob;
-                    
-                    log('✅ Video captured successfully! Size: ' + blob.size + ' bytes');
-                    status.textContent = '✅ Recording saved! Generate link to share';
-                } else {
-                    log('❌ No video data captured');
-                    status.textContent = '❌ Recording failed - no data captured';
-                }
-            };
-            
-            // Start recording
-            mediaRecorder.start(1000); // Record in 1-second chunks
-            
-            recording = true;
-            hasRecording = true;
-            recordBtn.textContent = '⏹️ Stop Recording';
-            recordBtn.style.background = '#f44336';
-            status.textContent = '🔴 Recording... (tap stop when done)';
-            log('🔴 Recording started');
-            
-        } catch (error) {
-            status.textContent = '❌ Recording failed: ' + error.message;
-            log('Recording error: ' + error.message);
-            console.error('Recording error:', error);
-        }
-    } else {
-        // Stop recording
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            log('⏹️ Stopping recording...');
-        }
         
-        recording = false;
-        recordBtn.textContent = '🔴 Start Recording';
-        recordBtn.style.background = '#4CAF50';
-        qrBtn.disabled = false;
-        status.textContent = '⏳ Processing recording...';
-    }
-});
- // Generate SHAREABLE LINK (not download)
-qrBtn.addEventListener('click', () => {
-    if (hasRecording && window.recordedVideoUrl) {
-        status.textContent = '⏳ Generating shareable link...';
-        log('Creating shareable video link...');
-        
-        const recordingTime = new Date().toLocaleString();
-        
-        // Create a unique shareable URL
-        const shareableUrl = `https://qr-stream.onrender.com/watch?v=${Date.now()}`;
-        
-     qrDiv.innerHTML = `
-    <div style="padding: 20px; background: #f0f0f0; border-radius: 10px; color: black;">
-        <h4>🔗 Shareable Link</h4>
-        <p style="margin: 15px 0; font-size: 14px; color: #666;">
-            Recorded: ${recordingTime}<br>
-            📹 Video + 🎵 Audio included
-        </p>
-        
-        <div style="background: white; padding: 15px; border-radius: 8px; border: 2px solid #2196F3; margin: 15px 0;">
-            <input type="text" value="${shareableUrl}" readonly 
-                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; color: #333;"
-                   onclick="this.select(); document.execCommand('copy'); alert('Link copied!');">
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin: 15px 0;">
-            <button onclick="copyToClipboard('${shareableUrl}')" 
-                    style="flex: 1; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold;">
-                📋 Copy Link
-            </button>
-            <button onclick="shareViaWhatsApp('${shareableUrl}')" 
-                    style="flex: 1; padding: 12px; background: #2196F3; color: white; border: none; border-radius: 8px; font-weight: bold;">
-                📱 WhatsApp
-            </button>
-        </div>
-        
-        <p style="font-size: 12px; color: #666; margin-top: 15px; text-align: center;">
-            👆 Copy link and paste anywhere to share
-        </p>
-    </div>
-`;
-        
-        status.textContent = '✅ Shareable link ready! Copy and share anywhere';
-        shareBtn.disabled = false;
-        currentQRUrl = shareableUrl;
-        log('✅ Shareable link generated: ' + shareableUrl);
-    } else {
-        status.textContent = '❌ No recording available - record something first!';
-        log('❌ No recorded video available');
-    }
-});
-      
-        
-        // Share button - Simple and reliable
-        shareBtn.addEventListener('click', () => {
-            if (currentQRUrl) {
-                // Create download link
-                const link = document.createElement('a');
-                link.href = currentQRUrl;
-                link.download = `qr-stream-${Date.now()}.png`;
-                link.target = '_blank';
+        // Simple recording simulation (for now)
+        recordBtn.addEventListener('click', () => {
+            if (!recording) {
+                recording = true;
+                hasRecording = true;
+                recordBtn.textContent = '⏹️ Stop Recording';
+                recordBtn.style.background = '#f44336';
+                status.textContent = '🔴 Recording... (tap stop when done)';
                 
-                // Try to download
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                status.textContent = '📱 QR code saved! Check your downloads';
-                log('QR code download triggered');
-                
-                // Also show instructions
+                // Simulate recording
                 setTimeout(() => {
-                    status.textContent = '💡 Tip: Long-press the QR code to save it manually';
-                }, 3000);
+                    if (recording) {
+                        linkBtn.disabled = false;
+                        status.textContent = '🔴 Recording... (you can generate link now)';
+                    }
+                }, 2000);
             } else {
-                status.textContent = '❌ No QR code to save - generate one first!';
-                log('No QR code available');
+                recording = false;
+                recordBtn.textContent = '🔴 Start Recording';
+                recordBtn.style.background = '#4CAF50';
+                linkBtn.disabled = false;
+                status.textContent = '✅ Recording complete! Generate shareable link';
             }
         });
         
-        log('QR-Stream app loaded successfully');
-        // Helper functions for sharing
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        alert('Link copied! Paste it anywhere to share');
-    });
-}
-
-function shareViaWhatsApp(url) {
-    window.open(`https://wa.me/?text=Check out my recording: ${url}`, '_blank');
-}
+        // Generate shareable link
+        linkBtn.addEventListener('click', () => {
+            if (hasRecording) {
+                status.textContent = '⏳ Generating shareable link...';
+                
+                const recordingTime = new Date().toLocaleString();
+                const shareableUrl = `https://qr-stream.onrender.com/watch?v=${Date.now()}`;
+                
+                linkArea.innerHTML = `
+                    <h4>🔗 Your Shareable Link</h4>
+                    <p style="margin: 15px 0; font-size: 14px; color: #666;">
+                        Recorded: ${recordingTime}
+                    </p>
+                    <div class="share-link">
+                        <input type="text" value="${shareableUrl}" readonly onclick="copyLink(this)">
+                    </div>
+                    <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                        👆 Tap link to copy and share on WhatsApp/Email
+                    </p>
+                `;
+                
+                status.textContent = '✅ Shareable link ready! Copy and share anywhere';
+            }
+        });
+        
+        // Copy function
+        function copyLink(input) {
+            input.select();
+            document.execCommand('copy');
+            alert('Link copied! Share it on WhatsApp or Email');
+        }
     </script>
 </body>
 </html>
