@@ -166,6 +166,18 @@ linkBtn.addEventListener('click', () => {
         }
 
         
+        // Open content preview
+        function openContent(dataUrl) {
+            window.open(dataUrl, '_blank');
+        }
+
+        // Copy content function
+        function copyContent(textarea) {
+            textarea.select();
+            document.execCommand('copy');
+            alert('Shareable link copied! When people click it, they will see your recording info');
+        }
+        
         // WhatsApp sharing function
         function shareWhatsApp(message) {
             const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
