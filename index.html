@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRStream - Video to QR Code</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .tagline {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .video-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        #videoPreview {
+            width: 100%;
+            max-width: 300px;
+            height: 200px;
+            background: #000;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .qr-section {
+            background: rgba(255,255,255,0.9);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            color: #333;
+        }
+        
+        #qrcode {
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-accent {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .status {
+            text-align: center;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">QRStream</div>
+            <div class="tagline">Turn any video into a QR code instantly</div>
+        </div>
+        
+        <div class="main-content">
+            <div class="video-section">
+                <video id="videoPreview" autoplay muted></video>
+                <div class="status" id="status">Ready to record</div>
+            </div>
+            
+            <div class="qr-section">
+                <h3>Your QR Code</h3>
+                <div id="qrcode"></div>
+                <p>Scan to access your content</p>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" id="startBtn">Start Recording</button>
+                <button class="btn btn-secondary" id="generateBtn" disabled>Generate QR Code</button>
+                <button class="btn btn-accent" id="shareBtn" disabled>Share QR Code</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream;
+        
+        const videoPreview = document.getElementById('videoPreview');
+        const startBtn = document.getElementById('startBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const status = document.getElementById('status');
+        const qrCodeDiv = document.getElementById('qrcode');
+        
+        // Initialize camera
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                videoPreview.srcObject = stream;
+                status.textContent = "Camera ready!";
+            } catch (err) {
+                status.textContent = "Camera access denied";
+                console.error('Error accessing camera:', err);
+            }
+        }
+        
+        // Start recording
+        startBtn.addEventListener('click', async () => {
+            if (!stream) {
+                await initCamera();
+            }
+            
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                // Stop recording
+                mediaRecorder.stop();
+                startBtn.textContent = 'Start Recording';
+                status.textContent = 'Recording stopped';
+            } else {
+                // Start recording
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    generateBtn.disabled = false;
+                    
+                    // Store the video URL for QR generation
+                    window.recordedVideoURL = url;
+                };
+                
+                mediaRecorder.start();
+                startBtn.textContent = 'Stop Recording';
+                status.textContent = 'Recording...';
+            }
+        });
+        
+        // Generate QR Code
+        generateBtn.addEventListener('click', () => {
+            if (window.recordedVideoURL) {
+                // Create a shareable link (in real app, this would be uploaded to cloud)
+                const shareableData = {
+                    type: 'video',
+                    timestamp: new Date().toISOString(),
+                    message: 'QRStream Video Recording'
+                };
+                
+                const qrData = JSON.stringify(shareableData);
+                
+                QRCode.toCanvas(qrCodeDiv, qrData, {
+                    width: 200,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                }, (error) => {
+                    if (error) {
+                        console.error(error);
+                        status.textContent = 'QR generation failed';
+                    } else {
+                        status.textContent = 'QR Code generated!';
+                        shareBtn.disabled = false;
+                    }
+                });
+            }
+        });
+        
+        // Share functionality
+        shareBtn.addEventListener('click', async () => {
+            const canvas = qrCodeDiv.querySelector('canvas');
+            if (canvas) {
+                try {
+                    canvas.toBlob(async (blob) => {
+                        const file = new File([blob], 'qrstream-code.png', { type: 'image/png' });
+                        
+                        if (navigator.share) {
+                            await navigator.share({
+                                title: 'QRStream QR Code',
+                                text: 'Scan this QR code to access my video!',
+                                files: [file]
+                            });
+                        } else {
+                            // Fallback: download the QR code
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'qrstream-code.png';
+                            a.click();
+                        }
+                    });
+                } catch (err) {
+                    console.error('Share failed:', err);
+                }
+            }
+        });
+        
+        // Initialize on load
+        window.addEventListener('load', initCamera);
+    </script>
+</body>
+</html>
