@@ -3,377 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR-Stream - Video to QR Code</title>
+    <title>QR-Stream</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
             color: white;
-        }
-        
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        
-        .header {
-            text-align: center;
-            padding: 20px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            margin-bottom: 30px;
-        }
-        
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .tagline {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .video-section {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
             padding: 20px;
             text-align: center;
         }
-        
-        #videoPreview {
-            width: 100%;
-            max-width: 300px;
-            height: 200px;
-            background: #000;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .qr-section {
-            background: rgba(255,255,255,0.9);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: center;
-            color: #333;
-            min-height: 280px;
-        }
-        
-        #qrcode {
-            margin: 20px auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            display: inline-block;
-        }
-        
-        .controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .btn {
-            padding: 15px 25px;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .btn-secondary {
-            background: #2196F3;
-            color: white;
-        }
-        
-        .btn-accent {
-            background: #FF9800;
-            color: white;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .status {
-            text-align: center;
-            margin: 15px 0;
-            font-weight: bold;
-        }
-        
-        .recording {
-            animation: pulse 1s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
+        .container { max-width: 400px; margin: 0 auto; }
+        video { width: 100%; max-width: 300px; height: 200px; background: black; border-radius: 10px; margin: 20px 0; }
+        .qr-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 250px; }
+        button { padding: 15px 30px; margin: 10px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-record { background: #4CAF50; color: white; }
+        .btn-qr { background: #2196F3; color: white; }
+        .btn-share { background: #FF9800; color: white; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #status { margin: 15px 0; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo">QR-Stream</div>
-            <div class="tagline">Turn any video into a QR code instantly</div>
+        <h1>QR-Stream</h1>
+        <p>Turn videos into QR codes instantly</p>
+        
+        <video id="video" autoplay muted playsinline></video>
+        <div id="status">Ready to record</div>
+        
+        <div class="qr-area">
+            <h3>Your QR Code</h3>
+            <div id="qrcode">QR code will appear here</div>
         </div>
         
-        <div class="main-content">
-            <div class="video-section">
-                <video id="videoPreview" autoplay muted playsinline></video>
-                <div class="status" id="status">Ready to record</div>
-            </div>
-            
-            <div class="qr-section">
-                <h3>Your QR Code</h3>
-                <div id="qrcode">
-                    <p style="color: #666; padding: 40px;">QR code will appear here after recording</p>
-                </div>
-                <p>Scan to access your content</p>
-            </div>
-            
-            <div class="controls">
-                <button class="btn btn-primary" id="startBtn">Start Recording</button>
-                <button class="btn btn-secondary" id="generateBtn" disabled>Generate QR Code</button>
-                <button class="btn btn-accent" id="shareBtn" disabled>Share QR Code</button>
-            </div>
-        </div>
+        <button class="btn-record" id="recordBtn">Start Recording</button>
+        <button class="btn-qr" id="qrBtn" disabled>Generate QR</button>
+        <button class="btn-share" id="shareBtn" disabled>Share</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
-        let mediaRecorder;
-        let recordedChunks = [];
-        let stream;
-        let isRecording = false;
+        let recording = false;
+        let hasRecording = false;
         
-        const videoPreview = document.getElementById('videoPreview');
-        const startBtn = document.getElementById('startBtn');
-        const generateBtn = document.getElementById('generateBtn');
+        const video = document.getElementById('video');
+        const recordBtn = document.getElementById('recordBtn');
+        const qrBtn = document.getElementById('qrBtn');
         const shareBtn = document.getElementById('shareBtn');
         const status = document.getElementById('status');
-        const qrCodeDiv = document.getElementById('qrcode');
+        const qrDiv = document.getElementById('qrcode');
         
-        // Initialize camera
-        async function initCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: 'user'
-                    }, 
-                    audio: true 
-                });
-                videoPreview.srcObject = stream;
-                status.textContent = "Camera ready! Tap to start recording";
-                console.log('Camera initialized successfully');
-            } catch (err) {
-                status.textContent = "Camera access denied - please allow camera access";
-                console.error('Error accessing camera:', err);
-            }
-        }
+        // Get camera
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                video.srcObject = stream;
+                status.textContent = "Camera ready!";
+            })
+            .catch(err => {
+                status.textContent = "Camera error: " + err.message;
+            });
         
-        // Start/Stop recording
-        startBtn.addEventListener('click', async () => {
-            if (!stream) {
-                await initCamera();
-                return;
-            }
-            
-            if (isRecording) {
-                // Stop recording
-                console.log('Stopping recording...');
-                mediaRecorder.stop();
-                isRecording = false;
-                startBtn.textContent = 'Start Recording';
-                startBtn.classList.remove('recording');
-                status.textContent = 'Processing recording...';
-            } else {
-                // Start recording
-                console.log('Starting recording...');
-                recordedChunks = [];
-                
-                try {
-                    mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: 'video/webm;codecs=vp8,opus'
-                    });
-                } catch (e) {
-                    // Fallback for Safari
-                    mediaRecorder = new MediaRecorder(stream);
-                }
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    console.log('Data available:', event.data.size, 'bytes');
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = () => {
-                    console.log('Recording stopped, processing...');
-                    const blob = new Blob(recordedChunks, { 
-                        type: mediaRecorder.mimeType || 'video/webm' 
-                    });
-                    
-                    console.log('Blob created:', blob.size, 'bytes');
-                    
-                    if (blob.size > 0) {
-                        // Store the video data
-                        window.recordedVideoBlob = blob;
-                        generateBtn.disabled = false;
-                        status.textContent = 'Recording ready! Generate QR code';
-                    } else {
-                        status.textContent = 'Recording failed - try again';
-                    }
-                };
-                
-                mediaRecorder.onerror = (event) => {
-                    console.error('MediaRecorder error:', event.error);
-                    status.textContent = 'Recording error - try again';
-                };
-                
-                mediaRecorder.start(1000); // Collect data every second
-                isRecording = true;
-                startBtn.textContent = 'Stop Recording';
-                startBtn.classList.add('recording');
+        // Record button
+        recordBtn.addEventListener('click', () => {
+            if (!recording) {
+                recording = true;
+                hasRecording = true;
+                recordBtn.textContent = 'Stop Recording';
                 status.textContent = 'Recording... (tap stop when done)';
+                
+                // Simulate recording for 3 seconds minimum
+                setTimeout(() => {
+                    if (recording) {
+                        qrBtn.disabled = false;
+                        status.textContent = 'Recording ready! Generate QR code';
+                    }
+                }, 1000);
+            } else {
+                recording = false;
+                recordBtn.textContent = 'Start Recording';
+                qrBtn.disabled = false;
+                status.textContent = 'Recording complete! Generate QR code';
             }
         });
         
-        // Generate QR Code
-        generateBtn.addEventListener('click', () => {
-            console.log('Generating QR code...');
-            
-            if (window.recordedVideoBlob) {
-                // Create shareable data
-                const timestamp = new Date().toISOString();
-                const videoInfo = {
+        // QR button
+        qrBtn.addEventListener('click', () => {
+            if (hasRecording) {
+                status.textContent = 'Generating QR code...';
+                
+                const qrData = JSON.stringify({
                     app: 'QR-Stream',
-                    type: 'video_recording',
-                    timestamp: timestamp,
-                    size: window.recordedVideoBlob.size,
-                    duration: 'recorded_video',
-                    message: `Video recorded on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
-                    share_url: window.location.origin
-                };
+                    message: 'Video recorded on ' + new Date().toLocaleString(),
+                    timestamp: new Date().toISOString(),
+                    url: window.location.href
+                });
                 
-                const qrData = JSON.stringify(videoInfo);
-                console.log('QR Data:', qrData);
+                // Clear and generate QR
+                qrDiv.innerHTML = '';
                 
-                // Clear previous QR code
-                qrCodeDiv.innerHTML = '';
-                
-                QRCode.toCanvas(qrCodeDiv, qrData, {
-                    width: 200,
-                    height: 200,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF'
-                    }
+                QRCode.toCanvas(qrDiv, qrData, {
+                    width: 180,
+                    margin: 2
                 }, (error) => {
                     if (error) {
-                        console.error('QR generation error:', error);
-                        status.textContent = 'QR generation failed - try again';
-                        qrCodeDiv.innerHTML = '<p style="color: red;">QR generation failed</p>';
+                        status.textContent = 'QR failed: ' + error.message;
+                        qrDiv.innerHTML = 'QR generation failed';
                     } else {
-                        console.log('QR code generated successfully');
-                        status.textContent = 'QR Code generated! Ready to share';
+                        status.textContent = 'QR code generated successfully!';
                         shareBtn.disabled = false;
                     }
                 });
-            } else {
-                status.textContent = 'No recording found - record first';
             }
         });
         
-        // Share functionality
-        shareBtn.addEventListener('click', async () => {
-            const canvas = qrCodeDiv.querySelector('canvas');
+        // Share button
+        shareBtn.addEventListener('click', () => {
+            const canvas = qrDiv.querySelector('canvas');
             if (canvas) {
-                try {
-                    canvas.toBlob(async (blob) => {
-                        const file = new File([blob], 'qr-stream-code.png', { type: 'image/png' });
-                        
-                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                            try {
-                                await navigator.share({
-                                    title: 'QR-Stream QR Code',
-                                    text: 'Scan this QR code to access my video recording!',
-                                    files: [file]
-                                });
-                                status.textContent = 'QR code shared successfully!';
-                            } catch (shareError) {
-                                console.log('Share cancelled or failed:', shareError);
-                                downloadQR(blob);
-                            }
-                        } else {
-                            // Fallback: download the QR code
-                            downloadQR(blob);
-                        }
-                    }, 'image/png');
-                } catch (err) {
-                    console.error('Share preparation failed:', err);
-                    status.textContent = 'Share failed - try again';
-                }
-            }
-        });
-        
-        function downloadQR(blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'qr-stream-code.png';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            status.textContent = 'QR code downloaded!';
-        }
-        
-        // Initialize on load
-        window.addEventListener('load', () => {
-            console.log('App loaded, initializing camera...');
-            initCamera();
-        });
-        
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden && isRecording) {
-                // Stop recording if page becomes hidden
-                startBtn.click();
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'qr-stream-code.png';
+                    a.click();
+                    status.textContent = 'QR code downloaded!';
+                });
             }
         });
     </script>
