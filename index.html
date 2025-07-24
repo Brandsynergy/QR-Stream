@@ -79,34 +79,79 @@
                 status.textContent = "❌ Camera error: " + err.message;
                 log('Camera failed: ' + err.message);
             });
+        // Record button with REAL video capture
+let mediaRecorder;
+let recordedChunks = [];
+
+recordBtn.addEventListener('click', async () => {
+    if (!recording) {
+        try {
+            // Get current stream (already working from camera setup)
+            const stream = video.srcObject;
+            
+            // Simple MediaRecorder setup
+            mediaRecorder = new MediaRecorder(stream);
+            recordedChunks = [];
+            
+            mediaRecorder.ondataavailable = (event) => {
+                console.log('Data available:', event.data.size);
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                console.log('Recording stopped, chunks:', recordedChunks.length);
+                if (recordedChunks.length > 0) {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const videoUrl = URL.createObjectURL(blob);
+                    
+                    // Store globally
+                    window.recordedVideoUrl = videoUrl;
+                    window.recordedVideoBlob = blob;
+                    
+                    log('✅ Video captured successfully! Size: ' + blob.size + ' bytes');
+                    status.textContent = '✅ Recording saved! Generate link to share';
+                } else {
+                    log('❌ No video data captured');
+                    status.textContent = '❌ Recording failed - no data captured';
+                }
+            };
+            
+            // Start recording
+            mediaRecorder.start(1000); // Record in 1-second chunks
+            
+            recording = true;
+            hasRecording = true;
+            recordBtn.textContent = '⏹️ Stop Recording';
+            recordBtn.style.background = '#f44336';
+            status.textContent = '🔴 Recording... (tap stop when done)';
+            log('🔴 Recording started');
+            
+        } catch (error) {
+            status.textContent = '❌ Recording failed: ' + error.message;
+            log('Recording error: ' + error.message);
+            console.error('Recording error:', error);
+        }
+    } else {
+        // Stop recording
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            log('⏹️ Stopping recording...');
+        }
         
-        // Record button
-        recordBtn.addEventListener('click', () => {
-            if (!recording) {
-                recording = true;
-                hasRecording = true;
-                recordBtn.textContent = '⏹️ Stop Recording';
-                recordBtn.style.background = '#f44336';
-                status.textContent = '🔴 Recording... (tap stop when done)';
-                log('Recording started');
-                
-                setTimeout(() => {
-                    if (recording) {
-                        qrBtn.disabled = false;
-                        status.textContent = '🔴 Recording... (you can generate QR now)';
-                    }
-                }, 1000);
-            } else {
-                recording = false;
-                recordBtn.textContent = '🔴 Start Recording';
-                recordBtn.style.background = '#4CAF50';
-                qrBtn.disabled = false;
-                status.textContent = '✅ Recording complete! Generate QR code';
-                log('Recording stopped');
-            }
-        });
-        // Generate downloadable link that opens in browser
+        recording = false;
+        recordBtn.textContent = '🔴 Start Recording';
+        recordBtn.style.background = '#4CAF50';
+        qrBtn.disabled = false;
+        status.textContent = '⏳ Processing recording...';
+    }
+});
+        // Generate link - improved error checking
     qrBtn.addEventListener('click', () => {
+    log('Generate link clicked. Has recording: ' + hasRecording);
+    log('Video URL exists: ' + !!window.recordedVideoUrl);
+    
     if (hasRecording && window.recordedVideoUrl) {
         status.textContent = '⏳ Generating shareable link...';
         log('Creating downloadable video link...');
@@ -141,10 +186,10 @@
         status.textContent = '✅ Shareable link ready! Tap to open in browser';
         shareBtn.disabled = false;
         currentQRUrl = window.recordedVideoUrl;
-        log('Downloadable video link generated');
+        log('✅ Downloadable video link generated');
     } else {
-        status.textContent = '❌ No recording available - record first!';
-        log('No recorded video available');
+        status.textContent = '❌ No recording available - record something first!';
+        log('❌ No recorded video available. hasRecording: ' + hasRecording + ', videoUrl: ' + !!window.recordedVideoUrl);
     }
 });
       
