@@ -23,11 +23,7 @@
         button:disabled { background: #ccc; cursor: not-allowed; }
         #status { margin: 15px 0; font-weight: bold; }
         #qrcode { margin: 20px auto; }
-        .qr-grid { display: inline-block; border: 2px solid #333; }
-        .qr-row { display: block; height: 8px; }
-        .qr-cell { display: inline-block; width: 8px; height: 8px; }
-        .qr-black { background: black; }
-        .qr-white { background: white; }
+        #qrcode canvas { border: 2px solid #333; border-radius: 10px; }
         .debug { background: rgba(0,0,0,0.1); padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
     </style>
 </head>
@@ -70,79 +66,79 @@
             debug.textContent = new Date().toLocaleTimeString() + ': ' + message;
         }
         
-        // Simple QR Code generator (works 100% offline!)
-        function generateSimpleQR(text) {
-            log('Creating simple QR pattern...');
-            
-            // Create a simple 21x21 QR-like pattern
-            const size = 21;
-            const pattern = [];
-            
-            // Initialize with white
-            for (let i = 0; i < size; i++) {
-                pattern[i] = new Array(size).fill(0);
-            }
-            
-            // Add finder patterns (corners)
-            function addFinderPattern(x, y) {
-                for (let i = 0; i < 7; i++) {
-                    for (let j = 0; j < 7; j++) {
-                        if (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
-                            if (x + i < size && y + j < size) {
-                                pattern[x + i][y + j] = 1;
-                            }
-                        }
-                    }
+        // Load QR code library dynamically
+        function loadQRLibrary() {
+            return new Promise((resolve, reject) => {
+                if (window.QRCode) {
+                    resolve();
+                    return;
                 }
-            }
-            
-            // Add finder patterns
-            addFinderPattern(0, 0);   // Top-left
-            addFinderPattern(0, 14);  // Top-right
-            addFinderPattern(14, 0);  // Bottom-left
-            
-            // Add some data pattern based on text
-            const hash = text.split('').reduce((a, b) => {
-                a = ((a << 5) - a) + b.charCodeAt(0);
-                return a & a;
-            }, 0);
-            
-            // Fill data area with pattern based on hash
-            for (let i = 9; i < 12; i++) {
-                for (let j = 9; j < 12; j++) {
-                    pattern[i][j] = (hash + i + j) % 2;
-                }
-            }
-            
-            // Add timing patterns
-            for (let i = 8; i < 13; i++) {
-                pattern[6][i] = i % 2;
-                pattern[i][6] = i % 2;
-            }
-            
-            return pattern;
+                
+                const script = document.createElement('script');
+                script.onload = () => {
+                    log('QR library loaded successfully');
+                    resolve();
+                };
+                script.onerror = () => {
+                    log('QR library failed to load');
+                    reject(new Error('Failed to load QR library'));
+                };
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+                document.head.appendChild(script);
+            });
         }
         
-        function renderQRPattern(pattern) {
-            log('Rendering QR pattern...');
-            
-            const qrGrid = document.createElement('div');
-            qrGrid.className = 'qr-grid';
-            
-            pattern.forEach(row => {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'qr-row';
+        // Alternative QR generation using different CDN
+        function generateQRWithAlternative(text) {
+            return new Promise((resolve, reject) => {
+                log('Trying alternative QR method...');
                 
-                row.forEach(cell => {
-                    const cellDiv = document.createElement('div');
-                    cellDiv.className = 'qr-cell ' + (cell ? 'qr-black' : 'qr-white');
-                    rowDiv.appendChild(cellDiv);
-                });
+                // Create canvas manually
+                const canvas = document.createElement('canvas');
+                const size = 200;
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
                 
-                qrGrid.appendChild(rowDiv);
+                // Try using QRious library
+                try {
+                    const qr = new QRious({
+                        element: canvas,
+                        value: text,
+                        size: size,
+                        background: 'white',
+                        foreground: 'black'
+                    });
+                    resolve(canvas);
+                } catch (error) {
+                    log('QRious failed: ' + error.message);
+                    reject(error);
+                }
             });
-            
-            return qrGrid;
+        }
+        
+        // Fallback: Use QR Server API
+        function generateQRWithAPI(text) {
+            return new Promise((resolve, reject) => {
+                log('Using QR Server API...');
+                
+                const img = document.createElement('img');
+                const encodedText = encodeURIComponent(text);
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedText}`;
+                
+                img.onload = () => {
+                    log('QR Server API success');
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    log('QR Server API failed');
+                    reject(new Error('QR Server API failed'));
+                };
+                img.src = qrUrl;
+                img.style.maxWidth = '200px';
+                img.style.border = '2px solid #333';
+                img.style.borderRadius = '10px';
+            });
         }
         
         // Get camera
@@ -184,29 +180,54 @@
             }
         });
         
-        // QR button - Pure JavaScript QR
-        qrBtn.addEventListener('click', () => {
+        // QR button - Multiple fallback methods
+        qrBtn.addEventListener('click', async () => {
             if (hasRecording) {
                 status.textContent = 'Generating QR code...';
                 log('Generating QR code...');
                 
-                const qrData = `QR-Stream Video: ${new Date().toLocaleString()}`;
+                const qrData = `QR-Stream Recording: ${new Date().toLocaleString()} - Visit: ${window.location.href}`;
                 log('QR data: ' + qrData);
                 
+                qrDiv.innerHTML = '<p style="color: #666;">Generating QR code...</p>';
+                
                 try {
-                    const pattern = generateSimpleQR(qrData);
-                    const qrElement = renderQRPattern(pattern);
-                    
+                    // Method 1: Try QRious library
+                    await loadQRLibrary();
+                    const canvas = await generateQRWithAlternative(qrData);
                     qrDiv.innerHTML = '';
-                    qrDiv.appendChild(qrElement);
-                    
+                    qrDiv.appendChild(canvas);
                     status.textContent = 'QR code generated successfully!';
                     shareBtn.disabled = false;
-                    log('QR code created and displayed');
+                    log('QR code created with QRious');
+                    return;
+                } catch (error1) {
+                    log('Method 1 failed: ' + error1.message);
                     
-                } catch (error) {
-                    status.textContent = 'QR generation error: ' + error.message;
-                    log('QR generation error: ' + error.message);
+                    try {
+                        // Method 2: Try QR Server API
+                        const img = await generateQRWithAPI(qrData);
+                        qrDiv.innerHTML = '';
+                        qrDiv.appendChild(img);
+                        status.textContent = 'QR code generated successfully!';
+                        shareBtn.disabled = false;
+                        log('QR code created with API');
+                        return;
+                    } catch (error2) {
+                        log('Method 2 failed: ' + error2.message);
+                        
+                        // Method 3: Simple text fallback
+                        qrDiv.innerHTML = `
+                            <div style="padding: 20px; border: 2px solid #333; border-radius: 10px; background: #f0f0f0;">
+                                <h4>QR Data:</h4>
+                                <p style="word-break: break-all; font-size: 12px;">${qrData}</p>
+                                <p><small>Copy this text to create QR code manually</small></p>
+                            </div>
+                        `;
+                        status.textContent = 'QR libraries failed - showing data instead';
+                        shareBtn.disabled = false;
+                        log('Showing QR data as fallback');
+                    }
                 }
             } else {
                 log('No recording available');
@@ -214,20 +235,41 @@
         });
         
         // Share button
-        shareBtn.addEventListener('click', () => {
-            const qrGrid = qrDiv.querySelector('.qr-grid');
-            if (qrGrid) {
-                log('QR code is ready to share');
-                status.textContent = 'QR code generated! You can screenshot it to share.';
-                
-                // Flash the QR code to indicate it's ready
-                qrGrid.style.border = '4px solid #4CAF50';
-                setTimeout(() => {
-                    qrGrid.style.border = '2px solid #333';
-                }, 1000);
-                
+        shareBtn.addEventListener('click', async () => {
+            const canvas = qrDiv.querySelector('canvas');
+            const img = qrDiv.querySelector('img');
+            
+            if (canvas) {
+                try {
+                    canvas.toBlob(async (blob) => {
+                        const file = new File([blob], 'qr-stream-code.png', { type: 'image/png' });
+                        
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: 'QR-Stream QR Code',
+                                text: 'Scan this QR code!',
+                                files: [file]
+                            });
+                            log('Shared via Web Share API');
+                        } else {
+                            // Download fallback
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'qr-stream-code.png';
+                            a.click();
+                            log('Downloaded QR code');
+                        }
+                    });
+                } catch (error) {
+                    log('Share failed: ' + error.message);
+                }
+            } else if (img) {
+                // For API-generated images, open in new tab
+                window.open(img.src, '_blank');
+                log('Opened QR image in new tab');
             } else {
-                log('No QR code found to share');
+                log('No QR element found to share');
             }
         });
         
