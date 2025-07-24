@@ -11,16 +11,19 @@
             color: white;
             padding: 20px;
             text-align: center;
+            margin: 0;
         }
         .container { max-width: 400px; margin: 0 auto; }
         video { width: 100%; max-width: 300px; height: 200px; background: black; border-radius: 10px; margin: 20px 0; }
-        .qr-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 250px; }
+        .qr-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 280px; }
         button { padding: 15px 30px; margin: 10px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-record { background: #4CAF50; color: white; }
         .btn-qr { background: #2196F3; color: white; }
         .btn-share { background: #FF9800; color: white; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         #status { margin: 15px 0; font-weight: bold; }
+        #qrcode img { max-width: 200px; margin: 10px auto; display: block; }
+        .debug { background: rgba(0,0,0,0.1); padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -29,19 +32,22 @@
         <p>Turn videos into QR codes instantly</p>
         
         <video id="video" autoplay muted playsinline></video>
-        <div id="status">Ready to record</div>
+        <div id="status">Initializing camera...</div>
         
         <div class="qr-area">
             <h3>Your QR Code</h3>
-            <div id="qrcode">QR code will appear here</div>
+            <div id="qrcode">
+                <p style="color: #666; padding: 40px;">QR code will appear here after recording</p>
+            </div>
         </div>
         
-        <button class="btn-record" id="recordBtn">Start Recording</button>
+        <button class="btn-record" id="recordBtn" disabled>Start Recording</button>
         <button class="btn-qr" id="qrBtn" disabled>Generate QR</button>
         <button class="btn-share" id="shareBtn" disabled>Share</button>
+        
+        <div class="debug" id="debug">Debug info will appear here</div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
         let recording = false;
         let hasRecording = false;
@@ -52,15 +58,25 @@
         const shareBtn = document.getElementById('shareBtn');
         const status = document.getElementById('status');
         const qrDiv = document.getElementById('qrcode');
+        const debug = document.getElementById('debug');
+        
+        function log(message) {
+            console.log(message);
+            debug.textContent = new Date().toLocaleTimeString() + ': ' + message;
+        }
         
         // Get camera
+        log('Requesting camera access...');
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
                 video.srcObject = stream;
-                status.textContent = "Camera ready!";
+                status.textContent = "Camera ready! Tap to start recording";
+                recordBtn.disabled = false;
+                log('Camera initialized successfully');
             })
             .catch(err => {
                 status.textContent = "Camera error: " + err.message;
+                log('Camera error: ' + err.message);
             });
         
         // Record button
@@ -70,12 +86,14 @@
                 hasRecording = true;
                 recordBtn.textContent = 'Stop Recording';
                 status.textContent = 'Recording... (tap stop when done)';
+                log('Started recording simulation');
                 
-                // Simulate recording for 3 seconds minimum
+                // Enable QR button after 1 second
                 setTimeout(() => {
                     if (recording) {
                         qrBtn.disabled = false;
-                        status.textContent = 'Recording ready! Generate QR code';
+                        status.textContent = 'Recording... (you can generate QR now)';
+                        log('QR button enabled');
                     }
                 }, 1000);
             } else {
@@ -83,53 +101,80 @@
                 recordBtn.textContent = 'Start Recording';
                 qrBtn.disabled = false;
                 status.textContent = 'Recording complete! Generate QR code';
+                log('Recording stopped');
             }
         });
         
-        // QR button
+        // QR button - Using Google Charts API (always works!)
         qrBtn.addEventListener('click', () => {
             if (hasRecording) {
                 status.textContent = 'Generating QR code...';
+                log('Generating QR code...');
                 
                 const qrData = JSON.stringify({
                     app: 'QR-Stream',
                     message: 'Video recorded on ' + new Date().toLocaleString(),
                     timestamp: new Date().toISOString(),
+                    device: navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Other',
                     url: window.location.href
                 });
                 
-                // Clear and generate QR
-                qrDiv.innerHTML = '';
+                log('QR data prepared: ' + qrData.substring(0, 50) + '...');
                 
-                QRCode.toCanvas(qrDiv, qrData, {
-                    width: 180,
-                    margin: 2
-                }, (error) => {
-                    if (error) {
-                        status.textContent = 'QR failed: ' + error.message;
-                        qrDiv.innerHTML = 'QR generation failed';
-                    } else {
-                        status.textContent = 'QR code generated successfully!';
-                        shareBtn.disabled = false;
-                    }
-                });
+                // Use Google Charts QR API (reliable!)
+                const qrSize = 200;
+                const qrUrl = `https://chart.googleapis.com/chart?chs=${qrSize}x${qrSize}&cht=qr&chl=${encodeURIComponent(qrData)}`;
+                
+                log('QR URL created: ' + qrUrl.substring(0, 80) + '...');
+                
+                // Create image element
+                const img = document.createElement('img');
+                img.onload = () => {
+                    status.textContent = 'QR code generated successfully!';
+                    shareBtn.disabled = false;
+                    log('QR code loaded successfully');
+                };
+                img.onerror = () => {
+                    status.textContent = 'QR generation failed - check internet';
+                    log('QR image failed to load');
+                };
+                img.src = qrUrl;
+                img.alt = 'QR Code';
+                img.style.maxWidth = '200px';
+                img.style.border = '2px solid #333';
+                img.style.borderRadius = '10px';
+                
+                // Replace content
+                qrDiv.innerHTML = '';
+                qrDiv.appendChild(img);
+                
+                log('QR image element created and added');
+            } else {
+                log('No recording available');
             }
         });
         
         // Share button
         shareBtn.addEventListener('click', () => {
-            const canvas = qrDiv.querySelector('canvas');
-            if (canvas) {
-                canvas.toBlob(blob => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'qr-stream-code.png';
-                    a.click();
-                    status.textContent = 'QR code downloaded!';
-                });
+            const img = qrDiv.querySelector('img');
+            if (img) {
+                log('Attempting to share QR code...');
+                
+                // Create a link to download
+                const a = document.createElement('a');
+                a.href = img.src;
+                a.download = 'qr-stream-code.png';
+                a.target = '_blank';
+                a.click();
+                
+                status.textContent = 'QR code opened in new tab!';
+                log('QR code download/share attempted');
+            } else {
+                log('No QR image found to share');
             }
         });
+        
+        log('App initialized');
     </script>
 </body>
 </html>
