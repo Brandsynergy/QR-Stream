@@ -186,7 +186,7 @@
                 status.textContent = 'Generating QR code...';
                 log('Generating QR code...');
                 
-                const qrData = `${window.location.href}?recorded=${Date.now()}`;
+                const qrData = `https://qr-stream.onrender.com/?ref=qr&time=${Date.now()}`;
                 log('QR data: ' + qrData);
                 
                 qrDiv.innerHTML = '<p style="color: #666;">Generating QR code...</p>';
