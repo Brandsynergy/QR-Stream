@@ -136,25 +136,12 @@ linkBtn.addEventListener('click', () => {
     }
 });
         
-        // Copy function
-        function copyLink(input) {
-            input.select();
-            document.execCommand('copy');
-            alert('Link copied! Share it on WhatsApp or Email');
-        }
-
-        
-        // Open content preview
-        function openContent(dataUrl) {
-            window.open(dataUrl, '_blank');
-        }
-
-        // Copy content function
-        function copyContent(textarea) {
-            textarea.select();
-            document.execCommand('copy');
-            alert('Shareable link copied! When people click it, they will see your recording info');
-        }
+    // Copy message function
+function copyMessage(textarea) {
+    textarea.select();
+    document.execCommand('copy');
+    alert('✅ Message copied! Now you can paste it anywhere - WhatsApp, Instagram, Facebook, Email!');
+}
         
         // WhatsApp sharing function
         function shareWhatsApp(message) {
