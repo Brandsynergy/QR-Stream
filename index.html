@@ -46,6 +46,12 @@
     </div>
 
     <script>
+   // Cloudinary Configuration
+   const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
+   const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset';
+
+   // Initialize Cloudinary
+   const cloudinary = window.cloudinary;
         let recording = false;
         let hasRecording = false;
         let recordedVideoUrl = '';
