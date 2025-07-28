@@ -100,6 +100,103 @@
             font-style: italic;
         }
 
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideUp 0.3s ease-out;
+        }
+
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal h3 {
+            color: #1a202c;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-cancel {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .modal-cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .modal-ok {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .modal-ok:hover {
+            background: #2563eb;
+        }
+
         /* Camera Preview Styles */
         .camera-container {
             position: relative;
@@ -397,6 +494,11 @@
                 width: 50px;
                 height: 50px;
             }
+
+            .modal {
+                padding: 25px;
+                margin: 20px;
+            }
         }
     </style>
 </head>
@@ -436,6 +538,18 @@
         </div>
     </div>
 
+    <!-- Custom Modal for Event Name Input -->
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal">
+            <h3>What event is this from?</h3>
+            <input type="text" id="eventInput" placeholder="e.g., Sarah's Wedding, Birthday Party" maxlength="50">
+            <div class="modal-buttons">
+                <button class="modal-cancel" onclick="closeEventModal()">Cancel</button>
+                <button class="modal-ok" onclick="confirmEventName()">OK</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Variables
         const video = document.getElementById('video');
@@ -445,12 +559,15 @@
         const linkArea = document.getElementById('linkArea');
         const cameraOverlay = document.getElementById('cameraOverlay');
         const recordingIndicator = document.getElementById('recordingIndicator');
+        const eventModal = document.getElementById('eventModal');
+        const eventInput = document.getElementById('eventInput');
         
         let recording = false;
         let hasRecording = false;
         let recordedBlob = null;
         let mediaRecorder = null;
         let chunks = [];
+        let eventNameCallback = null;
 
         // Cloudinary config
         const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
@@ -482,6 +599,40 @@
             status.textContent = message;
             status.className = type;
         }
+
+        // Custom modal functions
+        function showEventModal() {
+            return new Promise((resolve) => {
+                eventNameCallback = resolve;
+                eventInput.value = '';
+                eventModal.classList.add('active');
+                eventInput.focus();
+            });
+        }
+
+        function closeEventModal() {
+            eventModal.classList.remove('active');
+            if (eventNameCallback) {
+                eventNameCallback(null);
+                eventNameCallback = null;
+            }
+        }
+
+        function confirmEventName() {
+            const eventName = eventInput.value.trim() || "Special Event";
+            eventModal.classList.remove('active');
+            if (eventNameCallback) {
+                eventNameCallback(eventName);
+                eventNameCallback = null;
+            }
+        }
+
+        // Handle Enter key in modal
+        eventInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                confirmEventName();
+            }
+        });
 
         // Recording functionality
         recordBtn.addEventListener('click', () => {
@@ -552,10 +703,15 @@
         // Generate link
         linkBtn.addEventListener('click', async () => {
             if (hasRecording) {
-                updateStatus('⏳ Uploading your recording to cloud...', 'loading');
-                
                 try {
-                    const eventName = prompt("What event is this from? (e.g., 'Sarah's Wedding', 'Birthday Party')") || "Special Event";
+                    // Use custom modal instead of prompt
+                    const eventName = await showEventModal();
+                    
+                    if (eventName === null) {
+                        return; // User cancelled
+                    }
+                    
+                    updateStatus('⏳ Uploading your recording to cloud...', 'loading');
                     
                     const uploadResult = await uploadToCloudinary(recordedBlob);
                     
@@ -610,7 +766,10 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+  
+  
+  
   
   
   
