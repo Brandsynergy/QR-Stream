@@ -87,6 +87,7 @@
                     if (recording) {
                         linkBtn.disabled = false;
                         status.textContent = '🔴 Recording... (you can generate link now)';
+                        recordedBlob = new Blob(['fake video data'], { type: 'video/webm' });
                     }
                 }, 2000);
             } else {
