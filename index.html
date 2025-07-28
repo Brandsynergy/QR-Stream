@@ -72,33 +72,49 @@
             .catch(err => {
                 status.textContent = "❌ Camera error: " + err.message;
             });
+        // Real recording functionality
+recordBtn.addEventListener('click', () => {
+    if (!recording) {
+        // Start real recording
+        recording = true;
+        hasRecording = true;
+        recordBtn.textContent = '⏹️ Stop Recording';
+        recordBtn.style.background = '#f44336';
+        status.textContent = '🔴 Recording... (tap stop when done)';
         
-        // Simple recording simulation (for now)
-        recordBtn.addEventListener('click', () => {
-            if (!recording) {
-                recording = true;
-                hasRecording = true;
-                recordBtn.textContent = '⏹️ Stop Recording';
-                recordBtn.style.background = '#f44336';
-                status.textContent = '🔴 Recording... (tap stop when done)';
-                
-                // Simulate recording
-                setTimeout(() => {
-                    if (recording) {
-                        linkBtn.disabled = false;
-                        status.textContent = '🔴 Recording... (you can generate link now)';
-                        recordedBlob = new Blob(['fake video data'], { type: 'video/webm' });
-                    }
-                }, 2000);
-            } else {
-                recording = false;
-                recordBtn.textContent = '🔴 Start Recording';
-                recordBtn.style.background = '#4CAF50';
-                linkBtn.disabled = false;
-                status.textContent = '✅ Recording complete! Generate shareable link';
+        // Start MediaRecorder
+        const chunks = [];
+        const mediaRecorder = new MediaRecorder(video.srcObject);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                chunks.push(event.data);
             }
-        });
-// Generate shareable link with REAL video upload
+        };
+        
+        mediaRecorder.onstop = () => {
+            recordedBlob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(recordedBlob);
+            video.src = url;
+            video.style.display = 'block';
+            linkBtn.disabled = false;
+            status.textContent = '✅ Recording complete! Click "Generate Link" to share.';
+        };
+        
+        mediaRecorder.start();
+        window.currentRecorder = mediaRecorder; // Save reference
+        
+    } else {
+        // Stop recording
+        recording = false;
+        recordBtn.textContent = '🔴 Start Recording';
+        recordBtn.style.background = '#4CAF50';
+        
+        if (window.currentRecorder && window.currentRecorder.state === 'recording') {
+            window.currentRecorder.stop();
+        }
+});                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+   // Generate shareable link with REAL video upload
 linkBtn.addEventListener('click', async () => {
     if (hasRecording) {
         status.textContent = '⏳ Uploading your recording to cloud...';
