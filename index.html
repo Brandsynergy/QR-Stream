@@ -197,62 +197,83 @@
             background: #2563eb;
         }
 
-        /* Camera Toggle Buttons */
-        .camera-toggle {
+        /* Camera Switch Button - Clean and Prominent */
+        .camera-switch-container {
             display: flex;
-            gap: 8px;
-            margin: 20px 0;
             justify-content: center;
+            margin: 20px 0 15px 0;
         }
 
-        .camera-toggle button {
-            padding: 12px 20px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            background: white;
-            color: #64748b;
+        .camera-switch-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
-            min-width: 140px;
-            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            position: relative;
+            overflow: hidden;
         }
 
-        .camera-toggle button:hover {
-            border-color: #3b82f6;
-            color: #3b82f6;
+        .camera-switch-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
         }
 
-        .camera-toggle button.active {
-            background: #3b82f6;
-            color: white;
-            border-color: #3b82f6;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        .camera-switch-btn:hover::before {
+            left: 100%;
         }
 
-        .camera-toggle button:disabled {
-            opacity: 0.5;
+        .camera-switch-btn:hover {
+            background: linear-gradient(135deg, #4f46e5, #3730a3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .camera-switch-btn:disabled {
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            color: #94a3b8;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        .camera-toggle button.switching {
-            animation: buttonSpin 0.5s ease-in-out;
+        .camera-switch-btn.switching {
+            animation: switchAnimation 0.6s ease-in-out;
         }
 
-        @keyframes buttonSpin {
-            from { transform: scale(1) rotate(0deg); }
+        @keyframes switchAnimation {
+            0% { transform: scale(1) rotate(0deg); }
             50% { transform: scale(0.95) rotate(180deg); }
-            to { transform: scale(1) rotate(360deg); }
+            100% { transform: scale(1) rotate(360deg); }
+        }
+
+        .camera-icon {
+            font-size: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .camera-switch-btn:hover .camera-icon {
+            transform: scale(1.1);
         }
 
         /* Camera Preview Styles */
         .camera-container {
             position: relative;
-            margin: 25px 0;
+            margin: 10px 0 25px 0;
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
@@ -303,6 +324,23 @@
 
         .recording-indicator.active {
             display: block;
+        }
+
+        /* Camera indicator in bottom left */
+        .camera-indicator {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
         }
 
         @keyframes pulse {
@@ -552,14 +590,9 @@
                 margin: 20px;
             }
 
-            .camera-toggle {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .camera-toggle button {
-                min-width: auto;
-                width: 100%;
+            .camera-switch-btn {
+                padding: 10px 20px;
+                font-size: 13px;
             }
         }
     </style>
@@ -573,15 +606,11 @@
             <p class="tagline">Capture moments, share instantly</p>
         </div>
 
-        <!-- Camera Toggle Buttons -->
-        <div class="camera-toggle">
-            <button id="backCameraBtn" class="active">
-                <i class="fas fa-camera"></i>
-                Back Camera
-            </button>
-            <button id="frontCameraBtn">
-                <i class="fas fa-camera-retro"></i>
-                Front Camera
+        <!-- Camera Switch Button - Clean and Prominent -->
+        <div class="camera-switch-container">
+            <button class="camera-switch-btn" id="cameraSwitch">
+                <i class="fas fa-sync-alt camera-icon"></i>
+                <span id="cameraSwitchText">Switch to Front Camera</span>
             </button>
         </div>
         
@@ -596,6 +625,11 @@
             
             <div class="recording-indicator" id="recordingIndicator">
                 <i class="fas fa-circle"></i> REC
+            </div>
+            
+            <div class="camera-indicator" id="cameraIndicator">
+                <i class="fas fa-camera"></i>
+                <span id="cameraType">Back Camera</span>
             </div>
         </div>
         
@@ -634,8 +668,10 @@
         const linkArea = document.getElementById('linkArea');
         const cameraOverlay = document.getElementById('cameraOverlay');
         const recordingIndicator = document.getElementById('recordingIndicator');
-        const backCameraBtn = document.getElementById('backCameraBtn');
-        const frontCameraBtn = document.getElementById('frontCameraBtn');
+        const cameraSwitch = document.getElementById('cameraSwitch');
+        const cameraSwitchText = document.getElementById('cameraSwitchText');
+        const cameraIndicator = document.getElementById('cameraIndicator');
+        const cameraType = document.getElementById('cameraType');
         const eventModal = document.getElementById('eventModal');
         const eventInput = document.getElementById('eventInput');
         
@@ -661,25 +697,21 @@
                 
                 console.log(`Found ${availableCameras.length} cameras:`, availableCameras);
                 
-                // Show/hide camera buttons based on availability
+                // Show/hide camera switch button based on availability
                 if (availableCameras.length < 2) {
-                    // If only one camera, hide the toggle buttons
-                    document.querySelector('.camera-toggle').style.display = 'none';
+                    document.querySelector('.camera-switch-container').style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error getting cameras:', error);
             }
         }
 
-        // Update camera button states
-        function updateCameraButtons(facingMode) {
-            if (facingMode === 'environment') {
-                backCameraBtn.classList.add('active');
-                frontCameraBtn.classList.remove('active');
-            } else {
-                frontCameraBtn.classList.add('active');
-                backCameraBtn.classList.remove('active');
-            }
+        // Update camera switch button text and indicator
+        function updateCameraUI(facingMode) {
+            const isBack = facingMode === 'environment';
+            cameraType.textContent = isBack ? 'Back Camera' : 'Front Camera';
+            cameraSwitchText.textContent = isBack ? 'Switch to Front Camera' : 'Switch to Back Camera';
+            cameraIndicator.style.display = 'flex';
         }
 
         // Start camera with specific facing mode
@@ -703,8 +735,8 @@
                 video.srcObject = currentStream;
                 currentFacingMode = facingMode;
 
-                // Update button states
-                updateCameraButtons(facingMode);
+                // Update UI
+                updateCameraUI(facingMode);
 
                 // Hide overlay once camera is ready
                 setTimeout(() => {
@@ -712,8 +744,7 @@
                     const cameraName = facingMode === 'user' ? 'Front' : 'Back';
                     updateStatus(`📱 ${cameraName} camera ready! Tap to start recording`, "");
                     recordBtn.disabled = false;
-                    backCameraBtn.disabled = false;
-                    frontCameraBtn.disabled = false;
+                    cameraSwitch.disabled = false;
                 }, 1000);
 
             } catch (error) {
@@ -740,45 +771,28 @@
             }
         }
 
-        // Camera button event listeners
-        backCameraBtn.addEventListener('click', async () => {
-            if (recording || currentFacingMode === 'environment') return;
+        // Camera switch button event listener
+        cameraSwitch.addEventListener('click', async () => {
+            if (recording) return; // Don't switch while recording
             
-            backCameraBtn.disabled = true;
-            frontCameraBtn.disabled = true;
-            backCameraBtn.classList.add('switching');
+            cameraSwitch.disabled = true;
+            cameraSwitch.classList.add('switching');
             
-            updateStatus('🔄 Switching to back camera...', 'loading');
+            const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            const newCameraName = newFacingMode === 'user' ? 'Front' : 'Back';
             
-            try {
-                await startCamera('environment');
-            } catch (error) {
-                updateStatus('❌ Could not switch to back camera', 'error');
-            }
-            
-            setTimeout(() => {
-                backCameraBtn.classList.remove('switching');
-            }, 500);
-        });
-
-        frontCameraBtn.addEventListener('click', async () => {
-            if (recording || currentFacingMode === 'user') return;
-            
-            backCameraBtn.disabled = true;
-            frontCameraBtn.disabled = true;
-            frontCameraBtn.classList.add('switching');
-            
-            updateStatus('🔄 Switching to front camera...', 'loading');
+            updateStatus(`🔄 Switching to ${newCameraName} camera...`, 'loading');
             
             try {
-                await startCamera('user');
+                await startCamera(newFacingMode);
             } catch (error) {
-                updateStatus('❌ Could not switch to front camera', 'error');
+                updateStatus(`❌ Could not switch to ${newCameraName} camera`, 'error');
             }
             
+            // Remove animation class
             setTimeout(() => {
-                frontCameraBtn.classList.remove('switching');
-            }, 500);
+                cameraSwitch.classList.remove('switching');
+            }, 600);
         });
 
         // Initialize cameras
@@ -839,8 +853,7 @@
                 recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
                 recordBtn.classList.add('recording');
                 recordingIndicator.classList.add('active');
-                backCameraBtn.disabled = true; // Disable camera switch while recording
-                frontCameraBtn.disabled = true;
+                cameraSwitch.disabled = true; // Disable camera switch while recording
                 
                 const cameraName = currentFacingMode === 'user' ? 'Front' : 'Back';
                 updateStatus(`🔴 Recording with ${cameraName} camera... (tap stop when done)`, 'loading');
@@ -857,8 +870,7 @@
                 mediaRecorder.onstop = () => {
                     recordedBlob = new Blob(chunks, { type: 'video/webm' });
                     linkBtn.disabled = false;
-                    backCameraBtn.disabled = false; // Re-enable camera switch
-                    frontCameraBtn.disabled = false;
+                    cameraSwitch.disabled = false; // Re-enable camera switch
                     updateStatus('✅ Recording complete! Click "Generate Link" to share.', 'success');
                 };
                 
@@ -970,7 +982,19 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   
   
