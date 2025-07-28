@@ -253,11 +253,17 @@
             display: block;
         }
 
-        /* Camera Switch Button */
-        .camera-switch {
+        /* Camera Controls */
+        .camera-controls {
             position: absolute;
             top: 15px;
             right: 15px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .camera-switch {
             background: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
@@ -268,9 +274,9 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             transition: all 0.3s ease;
-            z-index: 10;
+            position: relative;
         }
 
         .camera-switch:hover {
@@ -282,6 +288,35 @@
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .camera-switch.switching {
+            animation: spin 0.5s ease-in-out;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(180deg); }
+        }
+
+        /* Camera indicator */
+        .camera-indicator {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .camera-indicator i {
+            font-size: 12px;
         }
 
         @keyframes pulse {
@@ -550,11 +585,20 @@
                     <div>Connecting to camera...</div>
                 </div>
             </div>
-            <button class="camera-switch" id="switchCamera" title="Switch Camera">
-                <i class="fas fa-sync-alt"></i>
-            </button>
+            
+            <div class="camera-controls">
+                <button class="camera-switch" id="switchCamera" title="Switch Camera">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            
             <div class="recording-indicator" id="recordingIndicator">
                 <i class="fas fa-circle"></i> REC
+            </div>
+            
+            <div class="camera-indicator" id="cameraIndicator">
+                <i class="fas fa-camera"></i>
+                <span id="cameraType">Back Camera</span>
             </div>
         </div>
         
@@ -594,6 +638,8 @@
         const cameraOverlay = document.getElementById('cameraOverlay');
         const recordingIndicator = document.getElementById('recordingIndicator');
         const switchCameraBtn = document.getElementById('switchCamera');
+        const cameraIndicator = document.getElementById('cameraIndicator');
+        const cameraType = document.getElementById('cameraType');
         const eventModal = document.getElementById('eventModal');
         const eventInput = document.getElementById('eventInput');
         
@@ -623,9 +669,18 @@
                 } else {
                     switchCameraBtn.style.display = 'none';
                 }
+                
+                console.log(`Found ${availableCameras.length} cameras:`, availableCameras);
             } catch (error) {
                 console.error('Error getting cameras:', error);
             }
+        }
+
+        // Update camera indicator
+        function updateCameraIndicator(facingMode) {
+            const isBack = facingMode === 'environment';
+            cameraType.textContent = isBack ? 'Back Camera' : 'Front Camera';
+            cameraIndicator.style.display = 'flex';
         }
 
         // Start camera with specific facing mode
@@ -649,16 +704,32 @@
                 video.srcObject = currentStream;
                 currentFacingMode = facingMode;
 
+                // Update indicator
+                updateCameraIndicator(facingMode);
+
                 // Hide overlay once camera is ready
                 setTimeout(() => {
                     cameraOverlay.classList.add('hidden');
-                    updateStatus(`📱 Camera ready! Using ${facingMode === 'user' ? 'front' : 'back'} camera. Tap to start recording`, "");
+                    const cameraName = facingMode === 'user' ? 'front' : 'back';
+                    updateStatus(`📱 ${cameraName.charAt(0).toUpperCase() + cameraName.slice(1)} camera ready! Tap to start recording`, "");
                     recordBtn.disabled = false;
                     switchCameraBtn.disabled = false;
                 }, 1000);
 
             } catch (error) {
                 console.error('Camera error:', error);
+                
+                // If back camera fails, try front camera
+                if (facingMode === 'environment') {
+                    console.log('Back camera failed, trying front camera...');
+                    try {
+                        await startCamera('user');
+                        return;
+                    } catch (frontError) {
+                        console.error('Front camera also failed:', frontError);
+                    }
+                }
+                
                 cameraOverlay.innerHTML = `
                     <div>
                         <i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom: 10px; color: #ef4444;"></i>
@@ -669,15 +740,31 @@
             }
         }
 
-        // Switch camera
+        // Switch camera with animation
         switchCameraBtn.addEventListener('click', async () => {
             if (recording) return; // Don't switch while recording
             
             switchCameraBtn.disabled = true;
-            updateStatus('🔄 Switching camera...', 'loading');
+            switchCameraBtn.classList.add('switching');
+            
+            const currentCameraName = currentFacingMode === 'user' ? 'front' : 'back';
+            const newCameraName = currentFacingMode === 'user' ? 'back' : 'front';
+            
+            updateStatus(`🔄 Switching to ${newCameraName} camera...`, 'loading');
             
             const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            await startCamera(newFacingMode);
+            
+            try {
+                await startCamera(newFacingMode);
+            } catch (error) {
+                updateStatus(`❌ Could not switch to ${newCameraName} camera`, 'error');
+                switchCameraBtn.disabled = false;
+            }
+            
+            // Remove animation class
+            setTimeout(() => {
+                switchCameraBtn.classList.remove('switching');
+            }, 500);
         });
 
         // Initialize cameras
@@ -739,7 +826,9 @@
                 recordBtn.classList.add('recording');
                 recordingIndicator.classList.add('active');
                 switchCameraBtn.disabled = true; // Disable camera switch while recording
-                updateStatus('🔴 Recording in progress... (tap stop when done)', 'loading');
+                
+                const cameraName = currentFacingMode === 'user' ? 'front' : 'back';
+                updateStatus(`🔴 Recording with ${cameraName} camera... (tap stop when done)`, 'loading');
                 
                 chunks = [];
                 mediaRecorder = new MediaRecorder(currentStream);
@@ -814,6 +903,7 @@
                     
                     if (uploadResult.secure_url) {
                         const recordingTime = new Date().toLocaleString();
+                        const cameraUsed = currentFacingMode === 'user' ? 'Front Camera' : 'Back Camera';
                         
                         linkArea.innerHTML = `
                             <div class="result-header">
@@ -823,6 +913,7 @@
                             <div class="result-info">
                                 <div style="margin-bottom: 8px;"><strong>Event:</strong> ${eventName}</div>
                                 <div style="margin-bottom: 8px;"><strong>Recorded:</strong> ${recordingTime}</div>
+                                <div style="margin-bottom: 8px;"><strong>Camera:</strong> ${cameraUsed}</div>
                                 <div><strong>Link:</strong> <a href="${uploadResult.secure_url}" target="_blank">View Video <i class="fas fa-external-link-alt"></i></a></div>
                             </div>
                             
@@ -863,7 +954,12 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+  
+  
+  
+  
+  
   
   
   
