@@ -253,6 +253,37 @@
             display: block;
         }
 
+        /* Camera Switch Button */
+        .camera-switch {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .camera-switch:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+
+        .camera-switch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -519,6 +550,9 @@
                     <div>Connecting to camera...</div>
                 </div>
             </div>
+            <button class="camera-switch" id="switchCamera" title="Switch Camera">
+                <i class="fas fa-sync-alt"></i>
+            </button>
             <div class="recording-indicator" id="recordingIndicator">
                 <i class="fas fa-circle"></i> REC
             </div>
@@ -559,6 +593,7 @@
         const linkArea = document.getElementById('linkArea');
         const cameraOverlay = document.getElementById('cameraOverlay');
         const recordingIndicator = document.getElementById('recordingIndicator');
+        const switchCameraBtn = document.getElementById('switchCamera');
         const eventModal = document.getElementById('eventModal');
         const eventInput = document.getElementById('eventInput');
         
@@ -568,31 +603,91 @@
         let mediaRecorder = null;
         let chunks = [];
         let eventNameCallback = null;
+        let currentStream = null;
+        let currentFacingMode = 'environment'; // Start with back camera
+        let availableCameras = [];
 
         // Cloudinary config
         const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
         const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset';
 
-        // Get camera
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(stream => {
-                video.srcObject = stream;
+        // Get available cameras
+        async function getAvailableCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                availableCameras = devices.filter(device => device.kind === 'videoinput');
+                
+                // Show switch button only if multiple cameras
+                if (availableCameras.length > 1) {
+                    switchCameraBtn.style.display = 'flex';
+                } else {
+                    switchCameraBtn.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error getting cameras:', error);
+            }
+        }
+
+        // Start camera with specific facing mode
+        async function startCamera(facingMode = 'environment') {
+            try {
+                // Stop current stream if exists
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: true
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = currentStream;
+                currentFacingMode = facingMode;
+
                 // Hide overlay once camera is ready
                 setTimeout(() => {
                     cameraOverlay.classList.add('hidden');
-                    updateStatus("📱 Camera ready! You can see yourself above. Tap to start recording", "");
+                    updateStatus(`📱 Camera ready! Using ${facingMode === 'user' ? 'front' : 'back'} camera. Tap to start recording`, "");
                     recordBtn.disabled = false;
+                    switchCameraBtn.disabled = false;
                 }, 1000);
-            })
-            .catch(err => {
+
+            } catch (error) {
+                console.error('Camera error:', error);
                 cameraOverlay.innerHTML = `
                     <div>
                         <i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom: 10px; color: #ef4444;"></i>
                         <div>Camera access denied</div>
                     </div>
                 `;
-                updateStatus("❌ Camera error: " + err.message, "error");
-            });
+                updateStatus("❌ Camera error: " + error.message, "error");
+            }
+        }
+
+        // Switch camera
+        switchCameraBtn.addEventListener('click', async () => {
+            if (recording) return; // Don't switch while recording
+            
+            switchCameraBtn.disabled = true;
+            updateStatus('🔄 Switching camera...', 'loading');
+            
+            const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            await startCamera(newFacingMode);
+        });
+
+        // Initialize cameras
+        async function initializeCameras() {
+            await getAvailableCameras();
+            await startCamera('environment'); // Start with back camera
+        }
+
+        // Start the app
+        initializeCameras();
 
         // Status update function
         function updateStatus(message, type = "") {
@@ -643,10 +738,11 @@
                 recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
                 recordBtn.classList.add('recording');
                 recordingIndicator.classList.add('active');
+                switchCameraBtn.disabled = true; // Disable camera switch while recording
                 updateStatus('🔴 Recording in progress... (tap stop when done)', 'loading');
                 
                 chunks = [];
-                mediaRecorder = new MediaRecorder(video.srcObject);
+                mediaRecorder = new MediaRecorder(currentStream);
                 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
@@ -657,6 +753,7 @@
                 mediaRecorder.onstop = () => {
                     recordedBlob = new Blob(chunks, { type: 'video/webm' });
                     linkBtn.disabled = false;
+                    switchCameraBtn.disabled = false; // Re-enable camera switch
                     updateStatus('✅ Recording complete! Click "Generate Link" to share.', 'success');
                 };
                 
@@ -766,7 +863,11 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+  
+  
+  
+  
   
   
   
