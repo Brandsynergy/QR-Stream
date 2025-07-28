@@ -64,7 +64,7 @@
         }
 
         .header {
-            margin-bottom: 35px;
+            margin-bottom: 25px;
         }
 
         h1 {
@@ -97,18 +97,69 @@
             font-style: italic;
         }
 
+        /* Camera Preview Styles */
+        .camera-container {
+            position: relative;
+            margin: 25px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            background: #000;
+        }
+
         #video {
             width: 100%;
             max-width: 380px;
-            border-radius: 16px;
-            margin: 25px 0;
+            height: 280px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .camera-overlay.hidden {
             display: none;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-            border: 3px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .recording-indicator {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+
+        .recording-indicator.active {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .controls {
-            margin: 35px 0;
+            margin: 25px 0;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -158,10 +209,10 @@
         #recordBtn.recording {
             background: linear-gradient(135deg, #ef4444, #dc2626);
             box-shadow: 0 8px 16px rgba(239, 68, 68, 0.3);
-            animation: pulse 2s infinite;
+            animation: buttonPulse 2s infinite;
         }
 
-        @keyframes pulse {
+        @keyframes buttonPulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.02); }
         }
@@ -187,7 +238,7 @@
         }
 
         #status {
-            margin: 25px 0;
+            margin: 20px 0;
             padding: 18px 24px;
             border-radius: 12px;
             background: linear-gradient(135deg, #f8fafc, #f1f5f9);
@@ -321,6 +372,10 @@
                 padding: 14px 24px;
                 font-size: 15px;
             }
+
+            #video {
+                height: 240px;
+            }
         }
     </style>
 </head>
@@ -333,14 +388,25 @@
             <p class="tagline">Capture moments, share instantly</p>
         </div>
         
-        <video id="video" autoplay muted playsinline></video>
+        <div class="camera-container">
+            <video id="video" autoplay muted playsinline></video>
+            <div class="camera-overlay" id="cameraOverlay">
+                <div>
+                    <i class="fas fa-camera fa-2x" style="margin-bottom: 10px;"></i>
+                    <div>Connecting to camera...</div>
+                </div>
+            </div>
+            <div class="recording-indicator" id="recordingIndicator">
+                <i class="fas fa-circle"></i> REC
+            </div>
+        </div>
         
         <div class="controls">
             <button id="recordBtn"><i class="fas fa-video"></i> Start Recording</button>
             <button id="linkBtn" disabled><i class="fas fa-link"></i> Generate Shareable Link</button>
         </div>
         
-        <div id="status"><i class="fas fa-camera"></i> Camera ready! Tap to start recording</div>
+        <div id="status"><i class="fas fa-camera"></i> Connecting to camera...</div>
         <div id="linkArea"></div>
         
         <div class="footer">
@@ -355,6 +421,8 @@
         const linkBtn = document.getElementById('linkBtn');
         const status = document.getElementById('status');
         const linkArea = document.getElementById('linkArea');
+        const cameraOverlay = document.getElementById('cameraOverlay');
+        const recordingIndicator = document.getElementById('recordingIndicator');
         
         let recording = false;
         let hasRecording = false;
@@ -370,10 +438,20 @@
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
                 video.srcObject = stream;
-                updateStatus("📱 Camera ready! Tap to start recording", "");
-                recordBtn.disabled = false;
+                // Hide overlay once camera is ready
+                setTimeout(() => {
+                    cameraOverlay.classList.add('hidden');
+                    updateStatus("📱 Camera ready! You can see yourself above. Tap to start recording", "");
+                    recordBtn.disabled = false;
+                }, 1000);
             })
             .catch(err => {
+                cameraOverlay.innerHTML = `
+                    <div>
+                        <i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom: 10px; color: #ef4444;"></i>
+                        <div>Camera access denied</div>
+                    </div>
+                `;
                 updateStatus("❌ Camera error: " + err.message, "error");
             });
 
@@ -391,6 +469,7 @@
                 hasRecording = true;
                 recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
                 recordBtn.classList.add('recording');
+                recordingIndicator.classList.add('active');
                 updateStatus('🔴 Recording in progress... (tap stop when done)', 'loading');
                 
                 chunks = [];
@@ -404,9 +483,6 @@
                 
                 mediaRecorder.onstop = () => {
                     recordedBlob = new Blob(chunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(recordedBlob);
-                    video.src = url;
-                    video.style.display = 'block';
                     linkBtn.disabled = false;
                     updateStatus('✅ Recording complete! Click "Generate Link" to share.', 'success');
                 };
@@ -418,6 +494,7 @@
                 recording = false;
                 recordBtn.innerHTML = '<i class="fas fa-video"></i> Start Recording';
                 recordBtn.classList.remove('recording');
+                recordingIndicator.classList.remove('active');
                 
                 if (mediaRecorder && mediaRecorder.state === 'recording') {
                     mediaRecorder.stop();
@@ -511,7 +588,11 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                          
+</html>                                                                                                                                                                                                                                                                                                         
+  
+  
+  
+  
   
   
   
