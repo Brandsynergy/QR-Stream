@@ -197,7 +197,7 @@
             background: #2563eb;
         }
 
-        /* Camera Switch Button - ALWAYS VISIBLE */
+        /* Camera Switch Button - ALWAYS CLICKABLE */
         .camera-switch-container {
             display: flex !important;
             justify-content: center;
@@ -246,14 +246,7 @@
             box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
         }
 
-        .camera-switch-btn:disabled {
-            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-            color: #94a3b8;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
+        /* REMOVED DISABLED STATE - ALWAYS CLICKABLE */
         .camera-switch-btn.switching {
             animation: switchAnimation 0.6s ease-in-out;
         }
@@ -559,7 +552,7 @@
             background-position: center;
         }
 
-        /* Mobile responsiveness - FIXED */
+        /* Mobile responsiveness */
         @media (max-width: 480px) {
             .container {
                 margin: 10px;
@@ -593,7 +586,6 @@
                 margin: 20px;
             }
 
-            /* MOBILE CAMERA SWITCH - ALWAYS VISIBLE */
             .camera-switch-container {
                 display: flex !important;
                 margin: 15px 0 10px 0;
@@ -611,7 +603,6 @@
             }
         }
 
-        /* Extra small screens */
         @media (max-width: 360px) {
             .camera-switch-btn {
                 padding: 10px 16px !important;
@@ -630,11 +621,11 @@
             <p class="tagline">Capture moments, share instantly</p>
         </div>
 
-        <!-- Camera Switch Button - ALWAYS VISIBLE ON ALL DEVICES -->
+        <!-- Camera Switch Button - ALWAYS CLICKABLE -->
         <div class="camera-switch-container">
             <button class="camera-switch-btn" id="cameraSwitch">
                 <i class="fas fa-sync-alt camera-icon"></i>
-                <span id="cameraSwitchText">Switch to Front Camera</span>
+                <span id="cameraSwitchText">Switch Camera</span>
             </button>
         </div>
         
@@ -708,29 +699,39 @@
         let currentStream = null;
         let currentFacingMode = 'environment'; // Start with back camera
         let availableCameras = [];
+        let switchAttempts = 0;
 
         // Cloudinary config
         const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
         const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset';
 
-        // Get available cameras
+        // Get available cameras - IMPROVED DETECTION
         async function getAvailableCameras() {
             try {
+                // Request permissions first to get accurate device list
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 availableCameras = devices.filter(device => device.kind === 'videoinput');
                 
                 console.log(`Found ${availableCameras.length} cameras:`, availableCameras);
                 
-                // ALWAYS show camera switch button - even with one camera for better UX
+                // ALWAYS show camera switch button and make it clickable
                 document.querySelector('.camera-switch-container').style.display = 'flex';
+                cameraSwitch.disabled = false; // NEVER DISABLE
                 
-                // If only one camera, show different text
-                if (availableCameras.length < 2) {
-                    cameraSwitchText.textContent = 'Camera Switch (Single Camera)';
-                    cameraSwitch.style.opacity = '0.7';
+                // Update button text based on cameras found
+                if (availableCameras.length >= 2) {
+                    cameraSwitchText.textContent = 'Switch Camera';
+                } else {
+                    cameraSwitchText.textContent = 'Try Switch Camera';
                 }
+                
             } catch (error) {
                 console.error('Error getting cameras:', error);
+                // Even if error, still show switch button
+                cameraSwitchText.textContent = 'Switch Camera';
+                cameraSwitch.disabled = false;
             }
         }
 
@@ -739,15 +740,12 @@
             const isBack = facingMode === 'environment';
             cameraType.textContent = isBack ? 'Back Camera' : 'Front Camera';
             
-            if (availableCameras.length >= 2) {
-                cameraSwitchText.textContent = isBack ? 'Switch to Front Camera' : 'Switch to Back Camera';
-                cameraSwitch.style.opacity = '1';
-            }
-            
+            // Always show switch option
+            cameraSwitchText.textContent = isBack ? 'Switch to Front' : 'Switch to Back';
             cameraIndicator.style.display = 'flex';
         }
 
-        // Start camera with specific facing mode
+        // Start camera with specific facing mode - IMPROVED ERROR HANDLING
         async function startCamera(facingMode = 'environment') {
             try {
                 // Stop current stream if exists
@@ -755,15 +753,32 @@
                     currentStream.getTracks().forEach(track => track.stop());
                 }
 
-                const constraints = {
-                    video: {
-                        facingMode: facingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: true
-                };
+                // Try multiple constraint approaches
+                let constraints;
+                
+                if (availableCameras.length >= 2) {
+                    // If we have multiple cameras, use facingMode
+                    constraints = {
+                        video: {
+                            facingMode: { ideal: facingMode },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: true
+                    };
+                } else {
+                    // If single camera or unknown, try both approaches
+                    constraints = {
+                        video: {
+                            facingMode: facingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: true
+                    };
+                }
 
+                console.log('Trying camera with constraints:', constraints);
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = currentStream;
                 currentFacingMode = facingMode;
@@ -777,40 +792,44 @@
                     const cameraName = facingMode === 'user' ? 'Front' : 'Back';
                     updateStatus(`📱 ${cameraName} camera ready! Tap to start recording`, "");
                     recordBtn.disabled = false;
-                    
-                    // Only enable switch if multiple cameras
-                    if (availableCameras.length >= 2) {
-                        cameraSwitch.disabled = false;
-                    }
+                    cameraSwitch.disabled = false; // ALWAYS ENABLE
                 }, 1000);
 
             } catch (error) {
                 console.error('Camera error:', error);
                 
-                // If back camera fails, try front camera
-                if (facingMode === 'environment') {
-                    console.log('Back camera failed, trying front camera...');
+                // If the requested camera fails, try the opposite
+                if (switchAttempts < 2) {
+                    switchAttempts++;
+                    const alternateFacingMode = facingMode === 'environment' ? 'user' : 'environment';
+                    console.log(`Trying alternate camera: ${alternateFacingMode}`);
+                    
                     try {
-                        await startCamera('user');
+                        await startCamera(alternateFacingMode);
                         return;
-                    } catch (frontError) {
-                        console.error('Front camera also failed:', frontError);
+                    } catch (alternateError) {
+                        console.error('Alternate camera also failed:', alternateError);
                     }
                 }
                 
+                // If all fails, show error but keep switch button active
                 cameraOverlay.innerHTML = `
                     <div>
                         <i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom: 10px; color: #ef4444;"></i>
-                        <div>Camera access denied</div>
+                        <div>Camera access issue</div>
+                        <div style="font-size: 14px; margin-top: 8px;">Try switching cameras</div>
                     </div>
                 `;
-                updateStatus("❌ Camera error: " + error.message, "error");
+                updateStatus("❌ Camera error - try switching cameras", "error");
+                cameraSwitch.disabled = false; // KEEP SWITCH ACTIVE
             }
         }
 
-        // Camera switch button event listener
+        // Camera switch button event listener - ALWAYS WORKS
         cameraSwitch.addEventListener('click', async () => {
-            if (recording || availableCameras.length < 2) return; // Don't switch while recording or if single camera
+            if (recording) return; // Don't switch while recording
+            
+            console.log('Camera switch clicked!');
             
             cameraSwitch.disabled = true;
             cameraSwitch.classList.add('switching');
@@ -820,15 +839,20 @@
             
             updateStatus(`🔄 Switching to ${newCameraName} camera...`, 'loading');
             
+            // Reset switch attempts for new attempt
+            switchAttempts = 0;
+            
             try {
                 await startCamera(newFacingMode);
+                updateStatus(`✅ Switched to ${newCameraName} camera!`, 'success');
             } catch (error) {
                 updateStatus(`❌ Could not switch to ${newCameraName} camera`, 'error');
             }
             
-            // Remove animation class
+            // Re-enable switch button after animation
             setTimeout(() => {
                 cameraSwitch.classList.remove('switching');
+                cameraSwitch.disabled = false; // ALWAYS RE-ENABLE
             }, 600);
         });
 
@@ -907,12 +931,7 @@
                 mediaRecorder.onstop = () => {
                     recordedBlob = new Blob(chunks, { type: 'video/webm' });
                     linkBtn.disabled = false;
-                    
-                    // Re-enable camera switch only if multiple cameras
-                    if (availableCameras.length >= 2) {
-                        cameraSwitch.disabled = false;
-                    }
-                    
+                    cameraSwitch.disabled = false; // Re-enable camera switch
                     updateStatus('✅ Recording complete! Click "Generate Link" to share.', 'success');
                 };
                 
@@ -960,7 +979,6 @@
         linkBtn.addEventListener('click', async () => {
             if (hasRecording) {
                 try {
-                    // Use custom modal instead of prompt
                     const eventName = await showEventModal();
                     
                     if (eventName === null) {
@@ -1024,7 +1042,12 @@
         }
     </script>
 </body>
-</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+</html>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+  
+  
+  
+  
+  
   
   
   
