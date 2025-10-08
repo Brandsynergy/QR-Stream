@@ -1,16 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Required meta -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Cloudinary (kept) -->
   <script src="https://widget.cloudinary.com/v2.0/global/all.js" type="text/javascript"></script>
+
   <title>QR-Stream - Quick Recording</title>
 
-  <!-- PWA -->
+  <!-- PWA + icons (new) -->
   <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="/icons/icon.png" />
-  <!-- <meta name="theme-color" content="#000000"> -->
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+  <meta name="theme-color" content="#000000" />
 
+  <!-- Styles -->
   <style>
     :root { --bg1:#667eea; --bg2:#764ba2; }
     body {
@@ -22,7 +29,12 @@
       margin: 0;
     }
     .container { max-width: 420px; margin: 0 auto; }
-    video { width: 100%; max-width: 320px; height: 200px; background: black; border-radius: 10px; margin: 20px auto; display:block; }
+    video {
+      width: 100%; max-width: 320px; height: 200px; background: black;
+      border-radius: 10px; margin: 20px auto; display:block;
+    }
+    #status { margin: 12px 0; font-weight: bold; }
+
     .panel {
       background: #ffffff;
       color: #111;
@@ -35,35 +47,22 @@
     .panel h3 { margin: 0 0 12px; }
     .meta { background:#f8f9fa; border-radius:8px; padding:12px; margin-bottom:12px; }
     .meta a { color:#1e88e5; text-decoration:underline; word-break:break-all; }
+
     textarea {
-      width: 100%;
-      height: 120px;
-      border: 2px solid #2196F3;
-      border-radius: 8px;
-      padding: 10px;
-      font-size: 14px;
-      resize: none;
-      background:#fff;
-      color:#111;
+      width: 100%; height: 120px; border: 2px solid #2196F3; border-radius: 8px;
+      padding: 10px; font-size: 14px; resize: none; background:#fff; color:#111;
     }
+
     .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .btn, .alink {
-      display:inline-block;
-      padding: 12px 18px;
-      border: none;
-      border-radius: 25px;
-      font-size: 15px;
-      font-weight: bold;
-      text-decoration:none;
-      cursor: pointer;
-      color:#fff;
+      display:inline-block; padding: 12px 18px; border: none; border-radius: 25px;
+      font-size: 15px; font-weight: bold; text-decoration:none; cursor: pointer; color:#fff;
     }
     .btn:disabled { background:#bbb; cursor:not-allowed; }
     .btn-green { background:#4CAF50; }
     .btn-blue { background:#2196F3; }
     .btn-orange { background:#FF5722; }
     .btn-wa { background:#25D366; }
-    #status { margin: 12px 0; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -84,11 +83,11 @@
   </div>
 
   <script>
-    // ===== Cloudinary config =====
+    // ========== Cloudinary config ==========
     const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
-    const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset';
+    const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset'; // must be UNSIGNED and allow VIDEO uploads
 
-    // ===== State =====
+    // ========== App state ==========
     let recording = false;
     let hasRecording = false;
     let recordedBlob = null;
@@ -102,7 +101,7 @@
     const statusEl = document.getElementById('status');
     const linkArea = document.getElementById('linkArea');
 
-    // ===== Camera =====
+    // ========== Start camera ==========
     async function startCamera() {
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -115,6 +114,7 @@
     }
     startCamera();
 
+    // Pick a supported recording type
     function pickMimeType() {
       const types = [
         'video/webm;codecs=vp9',
@@ -124,13 +124,14 @@
       for (const t of types) {
         if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
       }
-      return undefined;
+      return undefined; // let the browser decide
     }
 
-    // ===== Record / Stop =====
+    // ========== Record / Stop ==========
     recordBtn.addEventListener('click', () => {
       if (!recording) {
         if (!currentStream) return (statusEl.textContent = "❌ No camera stream.");
+
         chunks = [];
         const mimeType = pickMimeType();
         try {
@@ -163,11 +164,11 @@
       }
     });
 
-    // ===== Generate link =====
+    // ========== Generate link (upload to Cloudinary) ==========
     linkBtn.addEventListener('click', async () => {
       if (!hasRecording || !recordedBlob) return (statusEl.textContent = '⚠️ Please record something first.');
-      statusEl.textContent = '⏳ Uploading your recording to cloud...';
 
+      statusEl.textContent = '⏳ Uploading your recording to cloud...';
       try {
         const eventName = prompt("What event is this from? (e.g., 'Sarah\\'s Wedding', 'Birthday Party')") || "Special Event";
         const upload = await uploadToCloudinary(recordedBlob);
@@ -183,7 +184,7 @@
 
 #QRStream #${eventName.replace(/\s+/g,'')}`;
 
-        // Build clean, clickable UI (no onclick traps)
+        // Render clean, clickable UI
         linkArea.innerHTML = `
           <div class="meta">
             <strong>Event:</strong> ${eventName}<br>
@@ -199,15 +200,15 @@
           </div>
         `;
 
-        // Wire actions safely
-        const shareText = document.getElementById('shareText').value;
+        // Wire actions
+        const shareTextVal = document.getElementById('shareText').value;
         const wa = document.getElementById('waShare');
-        wa.href = 'https://wa.me/?text=' + encodeURIComponent(shareText);
+        wa.href = 'https://wa.me/?text=' + encodeURIComponent(shareTextVal);
 
         document.getElementById('copyMsgBtn').addEventListener('click', async () => {
           try {
             if (navigator.clipboard?.writeText) {
-              await navigator.clipboard.writeText(shareText);
+              await navigator.clipboard.writeText(shareTextVal);
             } else {
               const ta = document.getElementById('shareText');
               ta.focus(); ta.select(); document.execCommand('copy');
@@ -225,7 +226,7 @@
       }
     });
 
-    // ===== Cloudinary upload =====
+    // ========== Cloudinary upload ==========
     async function uploadToCloudinary(blob) {
       const fd = new FormData();
       fd.append('file', blob);
@@ -245,6 +246,13 @@
   </script>
 </body>
 </html>
+                                                                                                                        
+  
+  
+  
+  
+  
+  
                                                             
   
   
