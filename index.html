@@ -1,35 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://widget.cloudinary.com/v2.0/global/all.js" type="text/javascript"></script>
   <title>QR-Stream - Quick Recording</title>
 
-  <!-- PWA (kept) -->
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icons/icon.png">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon.png" />
   <!-- <meta name="theme-color" content="#000000"> -->
 
   <style>
+    :root { --bg1:#667eea; --bg2:#764ba2; }
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
       color: white;
       padding: 20px;
       text-align: center;
       margin: 0;
     }
-    .container { max-width: 400px; margin: 0 auto; }
-    video { width: 100%; max-width: 300px; height: 200px; background: black; border-radius: 10px; margin: 20px 0; }
-    .link-area { background: white; color: black; padding: 20px; border-radius: 10px; margin: 20px 0; min-height: 150px; }
-    button { padding: 15px 30px; margin: 10px; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; }
-    .btn-record { background: #4CAF50; color: white; }
-    .btn-link { background: #2196F3; color: white; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    #status { margin: 15px 0; font-weight: bold; }
-    .share-link { background: #f0f0f0; padding: 15px; border-radius: 8px; margin: 15px 0; border: 2px solid #2196F3; }
-    .share-link input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+    .container { max-width: 420px; margin: 0 auto; }
+    video { width: 100%; max-width: 320px; height: 200px; background: black; border-radius: 10px; margin: 20px auto; display:block; }
+    .panel {
+      background: #ffffff;
+      color: #111;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      text-align: left;
+      box-shadow: 0 6px 20px rgba(0,0,0,.15);
+    }
+    .panel h3 { margin: 0 0 12px; }
+    .meta { background:#f8f9fa; border-radius:8px; padding:12px; margin-bottom:12px; }
+    .meta a { color:#1e88e5; text-decoration:underline; word-break:break-all; }
+    textarea {
+      width: 100%;
+      height: 120px;
+      border: 2px solid #2196F3;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      resize: none;
+      background:#fff;
+      color:#111;
+    }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .btn, .alink {
+      display:inline-block;
+      padding: 12px 18px;
+      border: none;
+      border-radius: 25px;
+      font-size: 15px;
+      font-weight: bold;
+      text-decoration:none;
+      cursor: pointer;
+      color:#fff;
+    }
+    .btn:disabled { background:#bbb; cursor:not-allowed; }
+    .btn-green { background:#4CAF50; }
+    .btn-blue { background:#2196F3; }
+    .btn-orange { background:#FF5722; }
+    .btn-wa { background:#25D366; }
+    #status { margin: 12px 0; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -40,15 +74,13 @@
     <video id="video" autoplay muted playsinline></video>
     <div id="status">Starting camera...</div>
 
-    <div class="link-area">
+    <div class="panel">
       <h3>🔗 Shareable Link</h3>
-      <div id="linkArea">
-        <p style="color: #666; padding: 40px;">Record something first, then generate your shareable link</p>
-      </div>
+      <div id="linkArea"><p style="color:#555; padding:10px 0 0">Record something first, then generate your shareable link.</p></div>
     </div>
 
-    <button class="btn-record" id="recordBtn" disabled>🔴 Start Recording</button>
-    <button class="btn-link" id="linkBtn" disabled>🔗 Generate Link</button>
+    <button class="btn btn-green" id="recordBtn" disabled>🔴 Start Recording</button>
+    <button class="btn btn-blue" id="linkBtn" disabled>🔗 Generate Link</button>
   </div>
 
   <script>
@@ -56,10 +88,10 @@
     const CLOUDINARY_CLOUD_NAME = 'dlsnu3frt';
     const CLOUDINARY_UPLOAD_PRESET = 'qr_stream_preset';
 
-    // ===== App state =====
+    // ===== State =====
     let recording = false;
     let hasRecording = false;
-    let recordedBlob = null;      // now real data will be stored here
+    let recordedBlob = null;
     let mediaRecorder = null;
     let chunks = [];
     let currentStream = null;
@@ -67,148 +99,141 @@
     const video = document.getElementById('video');
     const recordBtn = document.getElementById('recordBtn');
     const linkBtn = document.getElementById('linkBtn');
-    const status = document.getElementById('status');
+    const statusEl = document.getElementById('status');
     const linkArea = document.getElementById('linkArea');
 
-    // ===== Start camera =====
+    // ===== Camera =====
     async function startCamera() {
       try {
         currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         video.srcObject = currentStream;
-        status.textContent = "📹 Camera ready! Tap to start recording";
+        statusEl.textContent = "📹 Camera ready! Tap to start recording";
         recordBtn.disabled = false;
       } catch (err) {
-        status.textContent = "❌ Camera error: " + err.message;
+        statusEl.textContent = "❌ Camera error: " + err.message;
       }
     }
     startCamera();
 
-    // ===== Pick a supported mime type (helps Safari/Chrome) =====
     function pickMimeType() {
       const types = [
         'video/webm;codecs=vp9',
         'video/webm;codecs=vp8',
-        'video/webm',
+        'video/webm'
       ];
       for (const t of types) {
-        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) {
-          return t;
-        }
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) return t;
       }
-      return undefined; // let browser choose
+      return undefined;
     }
 
-    // ===== Record button =====
+    // ===== Record / Stop =====
     recordBtn.addEventListener('click', () => {
       if (!recording) {
-        if (!currentStream) {
-          status.textContent = "❌ No camera stream.";
-          return;
-        }
+        if (!currentStream) return (statusEl.textContent = "❌ No camera stream.");
         chunks = [];
         const mimeType = pickMimeType();
         try {
           mediaRecorder = new MediaRecorder(currentStream, mimeType ? { mimeType } : undefined);
-        } catch (e) {
-          status.textContent = "❌ Recording not supported on this browser/device.";
+        } catch {
+          statusEl.textContent = "❌ Recording not supported on this device.";
           return;
         }
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
+        mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         mediaRecorder.onstop = () => {
           recordedBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
           hasRecording = true;
           linkBtn.disabled = false;
-          status.textContent = '✅ Recording complete! Generate shareable link';
+          statusEl.textContent = '✅ Recording complete! Generate shareable link';
         };
 
-        mediaRecorder.start(); // start recording
+        mediaRecorder.start();
         recording = true;
         recordBtn.textContent = '⏹️ Stop Recording';
-        recordBtn.style.background = '#f44336';
-        status.textContent = '🔴 Recording... (tap stop when done)';
+        recordBtn.classList.remove('btn-green');
+        recordBtn.classList.add('btn-orange');
+        statusEl.textContent = '🔴 Recording... (tap stop when done)';
       } else {
-        // stop recording
         recording = false;
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-          mediaRecorder.stop();
-        }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
         recordBtn.textContent = '🔴 Start Recording';
-        recordBtn.style.background = '#4CAF50';
+        recordBtn.classList.remove('btn-orange');
+        recordBtn.classList.add('btn-green');
       }
     });
 
-    // ===== Generate link (upload real blob to Cloudinary) =====
+    // ===== Generate link =====
     linkBtn.addEventListener('click', async () => {
-      if (!hasRecording || !recordedBlob) {
-        status.textContent = '⚠️ Please record something first.';
-        return;
-      }
+      if (!hasRecording || !recordedBlob) return (statusEl.textContent = '⚠️ Please record something first.');
+      statusEl.textContent = '⏳ Uploading your recording to cloud...';
 
-      status.textContent = '⏳ Uploading your recording to cloud...';
       try {
         const eventName = prompt("What event is this from? (e.g., 'Sarah\\'s Wedding', 'Birthday Party')") || "Special Event";
-        const uploadResult = await uploadToCloudinary(recordedBlob);
+        const upload = await uploadToCloudinary(recordedBlob);
+        if (!upload.secure_url) throw new Error('No secure_url from Cloudinary');
 
-        if (uploadResult.secure_url) {
-          const recordingTime = new Date().toLocaleString();
-          const shareMessage = `🎥 Check out this moment from ${eventName}!
+        const url = upload.secure_url;
+        const when = new Date().toLocaleString();
+        const shareMessage = `🎥 Check out this moment from ${eventName}!
 
-📅 Recorded: ${recordingTime}
+📅 Recorded: ${when}
 📱 Created with: QR-Stream App
-🎬 Watch here: ${uploadResult.secure_url}
+🎬 Watch here: ${url}
 
-#QRStream #${eventName.replace(/\s+/g, '')}`;
+#QRStream #${eventName.replace(/\s+/g,'')}`;
 
-          linkArea.innerHTML = `
-            <h4>🎬 Your Recording is Ready!</h4>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-              <strong>Event:</strong> ${eventName}<br>
-              <strong>Time:</strong> ${recordingTime}<br>
-              <strong>Link:</strong> <a href="${uploadResult.secure_url}" target="_blank" style="color: #2196F3;">View Recording</a>
-            </div>
-            <div class="share-message" style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 15px; margin: 15px 0;">
-              <textarea readonly onclick="copyMessage(this)" style="width: 100%; height: 120px; border: none; font-size: 14px; resize: none; background: transparent;">${shareMessage}</textarea>
-            </div>
-            <div style="margin: 15px 0;">
-              <button onclick="shareWhatsApp('${shareMessage.replace(/'/g, "\\'")}');" style="padding: 12px 25px; background: #25D366; color: white; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; margin: 5px;">📱 Share on WhatsApp</button>
-              <button onclick="copyMessage(document.querySelector('.share-message textarea'))" style="padding: 12px 25px; background: #2196F3; color: white; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; margin: 5px;">📋 Copy Message</button>
-              <button onclick="window.open('${uploadResult.secure_url}', '_blank')" style="padding: 12px 25px; background: #FF5722; color: white; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; margin: 5px;">🎬 Preview Video</button>
-            </div>
-            <p style="font-size: 12px; color: #666; margin-top: 15px;">👆 Your recording is now online! Share the real video link anywhere!</p>
-          `;
-          status.textContent = '✅ Recording uploaded! Share your real video link anywhere!';
-        }
-      } catch (error) {
-        console.error('Upload failed:', error);
-        status.textContent = '❌ Upload failed. Please try again.';
+        // Build clean, clickable UI (no onclick traps)
+        linkArea.innerHTML = `
+          <div class="meta">
+            <strong>Event:</strong> ${eventName}<br>
+            <strong>Time:</strong> ${when}<br>
+            <strong>Link:</strong> <a id="viewLink" href="${url}" target="_blank" rel="noopener">View Recording</a>
+          </div>
+          <label for="shareText" style="font-weight:bold;display:block;margin:6px 0">Share text:</label>
+          <textarea id="shareText" readonly>${shareMessage}</textarea>
+          <div class="actions">
+            <a id="waShare" class="alink btn-wa" href="#" target="_blank" rel="noopener">📱 Share on WhatsApp</a>
+            <button id="copyMsgBtn" class="btn btn-blue">📋 Copy Message</button>
+            <a id="previewBtn" class="alink btn-orange" href="${url}" target="_blank" rel="noopener">🎬 Preview Video</a>
+          </div>
+        `;
+
+        // Wire actions safely
+        const shareText = document.getElementById('shareText').value;
+        const wa = document.getElementById('waShare');
+        wa.href = 'https://wa.me/?text=' + encodeURIComponent(shareText);
+
+        document.getElementById('copyMsgBtn').addEventListener('click', async () => {
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(shareText);
+            } else {
+              const ta = document.getElementById('shareText');
+              ta.focus(); ta.select(); document.execCommand('copy');
+            }
+            alert('✅ Message copied! Paste it anywhere — WhatsApp, Instagram, Facebook, Email.');
+          } catch {
+            alert('⚠️ Copy failed. Please select and copy manually.');
+          }
+        });
+
+        statusEl.textContent = '✅ Recording uploaded! Share your real video link anywhere!';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = '❌ Upload failed. Please try again.';
       }
     });
 
     // ===== Cloudinary upload =====
     async function uploadToCloudinary(blob) {
-      const formData = new FormData();
-      formData.append('file', blob);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-      // Use the video endpoint since we're uploading a recording
+      const fd = new FormData();
+      fd.append('file', blob);
+      fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
       const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
-      const response = await fetch(url, { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
-    }
-
-    // ===== Helpers =====
-    function copyMessage(textarea) {
-      textarea.select();
-      document.execCommand('copy');
-      alert('✅ Message copied! Now you can paste it anywhere - WhatsApp, Instagram, Facebook, Email!');
-    }
-    function shareWhatsApp(message) {
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank');
+      const res = await fetch(url, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
     }
   </script>
 
@@ -220,6 +245,10 @@
   </script>
 </body>
 </html>
+                                                            
+  
+  
+  
                                                                                 
   
   
